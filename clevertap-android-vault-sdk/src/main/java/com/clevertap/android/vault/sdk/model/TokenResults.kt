@@ -52,3 +52,48 @@ sealed class DetokenizeResult {
     data class Error(val message: String) : DetokenizeResult()
 }
 
+/**
+ * Result class for batch tokenization operations
+ */
+sealed class BatchTokenizeResult {
+    /**
+     * Successful batch tokenization result
+     *
+     * @property results List of individual tokenization results
+     * @property summary Summary statistics for the batch operation
+     */
+    data class Success(
+        val results: List<BatchTokenItem>,
+        val summary: BatchTokenizeSummary
+    ) : BatchTokenizeResult()
+
+    /**
+     * Error during batch tokenization
+     *
+     * @property message The error message
+     */
+    data class Error(val message: String) : BatchTokenizeResult()
+}
+
+/**
+ * Result class for batch detokenization operations
+ */
+sealed class BatchDetokenizeResult {
+    /**
+     * Successful batch detokenization result
+     *
+     * @property results List of individual detokenization results
+     * @property summary Summary statistics for the batch operation
+     */
+    data class Success(
+        val results: List<BatchDetokenItem>,
+        val summary: BatchDetokenizeSummary
+    ) : BatchDetokenizeResult()
+
+    /**
+     * Error during batch detokenization
+     *
+     * @property message The error message
+     */
+    data class Error(val message: String) : BatchDetokenizeResult()
+}
