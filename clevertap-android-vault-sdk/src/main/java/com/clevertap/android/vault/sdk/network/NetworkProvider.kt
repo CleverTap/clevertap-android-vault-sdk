@@ -1,6 +1,7 @@
 package com.clevertap.android.vault.sdk.network
 
 import com.clevertap.android.vault.sdk.api.AuthApi
+import com.clevertap.android.vault.sdk.api.TokenizationApi
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -68,6 +69,15 @@ class NetworkProvider(
      */
     fun getAuthApi(): AuthApi {
         return authRetrofit.create(AuthApi::class.java)
+    }
+
+    /**
+     * Gets the API interface for tokenization operations
+     *
+     * @return The TokenizationApi interface
+     */
+    fun getTokenizationApi(): TokenizationApi {
+        return tokenizationRetrofit.create(TokenizationApi::class.java)
     }
 
 }
