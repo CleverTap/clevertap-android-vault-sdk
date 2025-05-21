@@ -1,6 +1,9 @@
 package com.clevertap.android.vault.sdk.repository
 
 import com.clevertap.android.vault.sdk.cache.TokenCache
+import com.clevertap.android.vault.sdk.encryption.DecryptionSuccess
+import com.clevertap.android.vault.sdk.encryption.EncryptionManager
+import com.clevertap.android.vault.sdk.encryption.EncryptionSuccess
 import com.clevertap.android.vault.sdk.model.BatchDetokenItem
 import com.clevertap.android.vault.sdk.model.BatchDetokenizeRequest
 import com.clevertap.android.vault.sdk.model.BatchDetokenizeResult
@@ -11,7 +14,9 @@ import com.clevertap.android.vault.sdk.model.BatchTokenizeResult
 import com.clevertap.android.vault.sdk.model.BatchTokenizeSummary
 import com.clevertap.android.vault.sdk.model.DetokenizeRequest
 import com.clevertap.android.vault.sdk.model.DetokenizeResult
+import com.clevertap.android.vault.sdk.model.EncryptedRequest
 import com.clevertap.android.vault.sdk.model.TokenizeRequest
+import com.clevertap.android.vault.sdk.model.TokenizeResponse
 import com.clevertap.android.vault.sdk.model.TokenizeResult
 import com.clevertap.android.vault.sdk.network.NetworkProvider
 import com.clevertap.android.vault.sdk.util.VaultLogger
@@ -25,6 +30,7 @@ import java.io.IOException
 class TokenRepositoryImpl(
     private val networkProvider: NetworkProvider,
     private val authRepository: AuthRepository,
+    private val encryptionManager: EncryptionManager,
     private val tokenCache: TokenCache,
     private val logger: VaultLogger
 ) : TokenRepository {
@@ -390,6 +396,97 @@ class TokenRepositoryImpl(
     }
 
     /**
+     * Tokenizes a single sensitive value with encryption over transit.
+     *
+     * This method provides enhanced security by encrypting the data before transmission:
+     * 1. Checking the cache for an existing token (if caching is enabled)
+     * 2. If not in cache, encrypting the value using AES-GCM encryption
+     * 3. Making an API call with the encrypted payload
+     * 4. Decrypting the response
+     * 5. Storing the result in cache (if caching is enabled)
+     *
+     * @param value The sensitive value to tokenize
+     * @return A [TokenizeResult] containing either the token or an error message
+     */
+    override suspend fun tokenizeWithEncryptionOverTransit(value: String): TokenizeResult {
+        // Check cache first if enabled
+        if (tokenCache.isEnabled()) {
+            val cachedToken = tokenCache.getToken(value)
+            if (cachedToken != null) {
+                logger.d("Token found in cache")
+                return TokenizeResult.Success(
+                    token = cachedToken,
+                    exists = true,
+                    newlyCreated = false,
+                    dataType = "string" // assuming string as default for cached values
+                )
+            }
+        }
+
+        // Not in cache, call the API with encryption
+        return try {
+            val accessToken = authRepository.getAccessToken()
+            val apiService = networkProvider.getTokenizationApi()
+
+            // Handle encryption
+            if (!encryptionManager.isEnabled()) {
+                logger.e("Encryption is not enabled but tokenizeWithEncryptionOverTransit was called")
+                return TokenizeResult.Error("Encryption is not enabled")
+            }
+
+            val encryptionResult = encryptionManager.encrypt(value)
+            if (encryptionResult !is EncryptionSuccess) {
+                logger.e("Encryption failed")
+                return TokenizeResult.Error("Encryption failed")
+            }
+
+            val encryptedRequest = EncryptedRequest(
+                itp = encryptionResult.encryptedPayload,
+                itk = encryptionResult.sessionKey,
+                iv = encryptionResult.iv
+            )
+
+            val response = executeWithRetry {
+                apiService.tokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
+            }
+
+            if (response.isSuccessful && response.body() != null) {
+                val encryptedResponse = response.body()!!
+
+                // Decrypt the response and parse into TokenizeResponse
+                val tokenResponse = decryptAndParseResponse(
+                    encryptedResponse.encryptedPayload,
+                    encryptedResponse.iv,
+                    TokenizeResponse::class.java
+                )
+
+                if (tokenResponse == null) {
+                    return TokenizeResult.Error("Failed to decrypt or parse response")
+                }
+
+                // Cache the result if enabled
+                if (tokenCache.isEnabled()) {
+                    tokenCache.putToken(value, tokenResponse.token)
+                }
+
+                TokenizeResult.Success(
+                    token = tokenResponse.token,
+                    exists = tokenResponse.exists,
+                    newlyCreated = tokenResponse.newlyCreated,
+                    dataType = tokenResponse.dataType
+                )
+            } else {
+                val errorBody = response.errorBody()?.string() ?: "Unknown error"
+                logger.e("Encrypted tokenization failed: ${response.code()} - $errorBody")
+                TokenizeResult.Error("Encrypted tokenization failed: ${response.code()} - $errorBody")
+            }
+        } catch (e: Exception) {
+            logger.e("Error during encrypted tokenization", e)
+            TokenizeResult.Error("Error during encrypted tokenization: ${e.message}")
+        }
+    }
+
+    /**
      * Executes a network call with retry logic and exponential backoff.
      *
      * This utility method provides resilience for API calls by:
@@ -439,5 +536,38 @@ class TokenRepositoryImpl(
         }
 
         throw lastException ?: Exception("Failed after $MAX_RETRY_COUNT retries")
+    }
+
+    /**
+     * Utility function to decrypt and parse encrypted API responses.
+     *
+     * This method:
+     * 1. Decrypts the encrypted payload using the provided IV
+     * 2. Parses the decrypted JSON into the specified response class
+     *
+     * @param encryptedPayload The encrypted response payload (Base64-encoded)
+     * @param iv The initialization vector used for decryption (Base64-encoded)
+     * @param responseClass The class to parse the decrypted JSON into
+     * @return The parsed response object, or null if decryption or parsing fails
+     */
+    private fun <T> decryptAndParseResponse(
+        encryptedPayload: String,
+        iv: String,
+        responseClass: Class<T>
+    ): T? {
+        val decryptionResult = encryptionManager.decrypt(encryptedPayload, iv)
+
+        if (decryptionResult !is DecryptionSuccess) {
+            logger.e("Failed to decrypt response")
+            return null
+        }
+
+        return try {
+            val gson = com.google.gson.Gson()
+            gson.fromJson(decryptionResult.data, responseClass)
+        } catch (e: Exception) {
+            logger.e("Failed to parse decrypted response", e)
+            null
+        }
     }
 }
