@@ -48,4 +48,12 @@ interface TokenRepository {
      * @return The tokenization result
      */
     suspend fun tokenizeWithEncryptionOverTransit(value: String): TokenizeResult
+
+    /**
+     * Detokenizes a single token with encryption over transit
+     *
+     * @param token The token to detokenize
+     * @return The detokenization result
+     */
+    suspend fun detokenizeWithEncryptionOverTransit(token: String): DetokenizeResult
 }

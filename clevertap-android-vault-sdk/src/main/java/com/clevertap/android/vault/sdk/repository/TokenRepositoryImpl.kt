@@ -13,6 +13,7 @@ import com.clevertap.android.vault.sdk.model.BatchTokenizeRequest
 import com.clevertap.android.vault.sdk.model.BatchTokenizeResult
 import com.clevertap.android.vault.sdk.model.BatchTokenizeSummary
 import com.clevertap.android.vault.sdk.model.DetokenizeRequest
+import com.clevertap.android.vault.sdk.model.DetokenizeResponse
 import com.clevertap.android.vault.sdk.model.DetokenizeResult
 import com.clevertap.android.vault.sdk.model.EncryptedRequest
 import com.clevertap.android.vault.sdk.model.TokenizeRequest
@@ -483,6 +484,100 @@ class TokenRepositoryImpl(
         } catch (e: Exception) {
             logger.e("Error during encrypted tokenization", e)
             TokenizeResult.Error("Error during encrypted tokenization: ${e.message}")
+        }
+    }
+
+    /**
+     * Detokenizes a single token with encryption over transit.
+     *
+     * This method provides enhanced security by encrypting the request and response:
+     * 1. Checking the cache for the original value (if caching is enabled)
+     * 2. If not in cache, encrypting the request using AES-GCM encryption
+     * 3. Making an API call with the encrypted payload
+     * 4. Decrypting the response
+     * 5. Storing the result in cache (if caching is enabled)
+     *
+     * @param token The token to detokenize
+     * @return A [DetokenizeResult] containing either the original value or an error message
+     */
+    override suspend fun detokenizeWithEncryptionOverTransit(token: String): DetokenizeResult {
+        // Check cache first if enabled
+        if (tokenCache.isEnabled()) {
+            val cachedValue = tokenCache.getValue(token)
+            if (cachedValue != null) {
+                logger.d("Value found in cache")
+                return DetokenizeResult.Success(
+                    value = cachedValue,
+                    exists = true,
+                    dataType = "string" // assuming string as default for cached values
+                )
+            }
+        }
+
+        // Not in cache, call the API with encryption
+        try {
+            val accessToken = authRepository.getAccessToken()
+            val apiService = networkProvider.getTokenizationApi()
+
+            // Handle encryption
+            if (!encryptionManager.isEnabled()) {
+                logger.e("Encryption is not enabled but detokenizeWithEncryptionOverTransit was called")
+                return DetokenizeResult.Error("Encryption is not enabled")
+            }
+
+            // Encrypt the detokenize request
+            val request = DetokenizeRequest(token)
+            val gson = com.google.gson.Gson()
+            val requestJson = gson.toJson(request)
+
+            val encryptionResult = encryptionManager.encrypt(requestJson)
+            if (encryptionResult !is EncryptionSuccess) {
+                logger.e("Encryption failed")
+                return DetokenizeResult.Error("Encryption failed")
+            }
+
+            val encryptedRequest = EncryptedRequest(
+                itp = encryptionResult.encryptedPayload,
+                itk = encryptionResult.sessionKey,
+                iv = encryptionResult.iv
+            )
+
+            val response = executeWithRetry {
+                apiService.detokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
+            }
+
+            if (response.isSuccessful && response.body() != null) {
+                val encryptedResponse = response.body()!!
+
+                // Decrypt and parse the response
+                val detokenizeResponse = decryptAndParseResponse(
+                    encryptedResponse.encryptedPayload,
+                    encryptedResponse.iv,
+                    DetokenizeResponse::class.java
+                )
+
+                if (detokenizeResponse == null) {
+                    return DetokenizeResult.Error("Failed to decrypt or parse response")
+                }
+
+                // Cache the result if enabled and exists
+                if (tokenCache.isEnabled() && detokenizeResponse.exists && detokenizeResponse.value != null) {
+                    tokenCache.putValue(token, detokenizeResponse.value)
+                }
+
+                return DetokenizeResult.Success(
+                    value = detokenizeResponse.value,
+                    exists = detokenizeResponse.exists,
+                    dataType = detokenizeResponse.dataType
+                )
+            } else {
+                val errorBody = response.errorBody()?.string() ?: "Unknown error"
+                logger.e("Encrypted detokenization failed: ${response.code()} - $errorBody")
+                return DetokenizeResult.Error("Encrypted detokenization failed: ${response.code()} - $errorBody")
+            }
+        } catch (e: Exception) {
+            logger.e("Error during encrypted detokenization", e)
+            return DetokenizeResult.Error("Error during encrypted detokenization: ${e.message}")
         }
     }
 
