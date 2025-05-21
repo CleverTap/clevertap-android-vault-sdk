@@ -40,4 +40,20 @@ interface TokenRepository {
      * @return The batch detokenization result
      */
     suspend fun batchDetokenize(tokens: List<String>): BatchDetokenizeResult
+
+    /**
+     * Tokenizes a single sensitive value with encryption over transit
+     *
+     * @param value The sensitive value to tokenize
+     * @return The tokenization result
+     */
+    suspend fun tokenizeWithEncryptionOverTransit(value: String): TokenizeResult
+
+    /**
+     * Detokenizes a single token with encryption over transit
+     *
+     * @param token The token to detokenize
+     * @return The detokenization result
+     */
+    suspend fun detokenizeWithEncryptionOverTransit(token: String): DetokenizeResult
 }

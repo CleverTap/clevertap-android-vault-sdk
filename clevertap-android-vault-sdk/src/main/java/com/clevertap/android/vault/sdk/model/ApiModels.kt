@@ -105,3 +105,20 @@ data class BatchDetokenizeSummary(
     val foundCount: Int,
     val notFoundCount: Int
 )
+
+/**
+ * Encrypted request model
+ */
+data class EncryptedRequest(
+    val itp: String,
+    val itk: String,
+    val iv: String
+)
+
+/**
+ * Encrypted response model
+ */
+data class EncryptedResponse(
+    val encryptedPayload: String,
+    val iv: String
+)
