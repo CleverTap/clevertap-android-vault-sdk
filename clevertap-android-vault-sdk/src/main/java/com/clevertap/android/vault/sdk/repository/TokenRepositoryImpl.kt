@@ -10,6 +10,7 @@ import com.clevertap.android.vault.sdk.model.BatchDetokenizeResult
 import com.clevertap.android.vault.sdk.model.BatchDetokenizeSummary
 import com.clevertap.android.vault.sdk.model.BatchTokenItem
 import com.clevertap.android.vault.sdk.model.BatchTokenizeRequest
+import com.clevertap.android.vault.sdk.model.BatchTokenizeResponse
 import com.clevertap.android.vault.sdk.model.BatchTokenizeResult
 import com.clevertap.android.vault.sdk.model.BatchTokenizeSummary
 import com.clevertap.android.vault.sdk.model.DetokenizeRequest
@@ -578,6 +579,151 @@ class TokenRepositoryImpl(
         } catch (e: Exception) {
             logger.e("Error during encrypted detokenization", e)
             return DetokenizeResult.Error("Error during encrypted detokenization: ${e.message}")
+        }
+    }
+
+    /**
+     * Tokenizes multiple sensitive values in a batch operation with encryption over transit.
+     *
+     * This method provides enhanced security for batch operations by:
+     * 1. Validating the batch size against the maximum limit
+     * 2. Checking the cache for existing tokens (if caching is enabled)
+     * 3. Encrypting the entire batch request
+     * 4. Making a batch API call with the encrypted payload
+     * 5. Decrypting the response
+     * 6. Updating the cache with new results
+     * 7. Combining cached and new results
+     *
+     * @param values The list of sensitive values to tokenize
+     * @return A [BatchTokenizeResult] containing the results or an error message
+     */
+    override suspend fun batchTokenizeWithEncryptionOverTransit(values: List<String>): BatchTokenizeResult {
+        // Validate batch size
+        if (values.isEmpty()) {
+            return BatchTokenizeResult.Error("Batch tokenize request contains no values")
+        }
+
+        if (values.size > MAX_BATCH_SIZE_TOKENIZE) {
+            return BatchTokenizeResult.Error("Batch size exceeds the maximum limit of $MAX_BATCH_SIZE_TOKENIZE values")
+        }
+
+        // Check if encryption is enabled
+        if (!encryptionManager.isEnabled()) {
+            logger.e("Encryption is not enabled but batchTokenizeWithEncryptionOverTransit was called")
+            return BatchTokenizeResult.Error("Encryption is not enabled")
+        }
+
+        // First check cache for all values if enabled
+        val results = mutableListOf<BatchTokenItem>()
+        val uncachedValues = mutableListOf<String>()
+
+        if (tokenCache.isEnabled()) {
+            for (value in values) {
+                val cachedToken = tokenCache.getToken(value)
+                if (cachedToken != null) {
+                    logger.d("Token found in cache for value in batch")
+                    results.add(
+                        BatchTokenItem(
+                            originalValue = value,
+                            token = cachedToken,
+                            exists = true,
+                            newlyCreated = false,
+                            dataType = "string" // assuming string as default for cached values
+                        )
+                    )
+                } else {
+                    uncachedValues.add(value)
+                }
+            }
+
+            // If all values were in cache, return immediately
+            if (uncachedValues.isEmpty()) {
+                logger.d("All tokens found in cache")
+                return BatchTokenizeResult.Success(
+                    results = results,
+                    summary = BatchTokenizeSummary(
+                        processedCount = results.size,
+                        existingCount = results.size,
+                        newlyCreatedCount = 0
+                    )
+                )
+            }
+        } else {
+            // Cache not enabled, process all values
+            uncachedValues.addAll(values)
+        }
+
+        // Now handle the values not found in cache
+        try {
+            val accessToken = authRepository.getAccessToken()
+            val apiService = networkProvider.getTokenizationApi()
+
+            // Batch tokenize by encrypting the entire batch request
+            val batchRequest = BatchTokenizeRequest(uncachedValues)
+            val gson = com.google.gson.Gson()
+            val requestJson = gson.toJson(batchRequest)
+
+            // Encrypt the batch request JSON
+            val encryptionResult = encryptionManager.encrypt(requestJson)
+            if (encryptionResult !is EncryptionSuccess) {
+                logger.e("Encryption failed for batch request")
+                return BatchTokenizeResult.Error("Encryption failed for batch request")
+            }
+
+            val encryptedRequest = EncryptedRequest(
+                itp = encryptionResult.encryptedPayload,
+                itk = encryptionResult.sessionKey,
+                iv = encryptionResult.iv
+            )
+
+            // Send encrypted batch request
+            val response = executeWithRetry {
+                apiService.batchTokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
+            }
+
+            if (response.isSuccessful && response.body() != null) {
+                val encryptedResponse = response.body()!!
+
+                // Decrypt the response
+                val batchResponse = decryptAndParseResponse(
+                    encryptedResponse.encryptedPayload,
+                    encryptedResponse.iv,
+                    BatchTokenizeResponse::class.java
+                )
+
+                if (batchResponse == null) {
+                    return BatchTokenizeResult.Error("Failed to decrypt or parse batch response")
+                }
+
+                // Cache the results if enabled
+                if (tokenCache.isEnabled()) {
+                    batchResponse.results.forEach { item ->
+                        if (item.exists || item.newlyCreated) {
+                            tokenCache.putToken(item.originalValue, item.token)
+                            tokenCache.putValue(item.token, item.originalValue)
+                        }
+                    }
+                }
+
+                // Combine cached results with new results
+                results.addAll(batchResponse.results)
+
+                return BatchTokenizeResult.Success(
+                    results = results,
+                    summary = BatchTokenizeSummary(
+                        processedCount = results.size,
+                        existingCount = results.count { it.exists },
+                        newlyCreatedCount = results.count { it.newlyCreated }
+                    )
+                )
+            } else {
+                val errorBody = response.errorBody()?.string() ?: "Unknown error"
+                logger.e("Encrypted batch tokenization failed: ${response.code()} - $errorBody")
+                return BatchTokenizeResult.Error("Encrypted batch tokenization failed: ${response.code()} - $errorBody")
+            }
+        } catch (e: Exception) {
+            logger.e("Error during encrypted batch tokenization", e)
+            return BatchTokenizeResult.Error("Error during encrypted batch tokenization: ${e.message}")
         }
     }
 
