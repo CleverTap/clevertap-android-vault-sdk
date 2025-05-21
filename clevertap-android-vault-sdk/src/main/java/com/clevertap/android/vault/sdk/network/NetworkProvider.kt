@@ -1,5 +1,6 @@
 package com.clevertap.android.vault.sdk.network
 
+import com.clevertap.android.vault.sdk.api.AuthApi
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -58,6 +59,15 @@ class NetworkProvider(
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+    }
+
+    /**
+     * Gets the API interface for authentication operations
+     *
+     * @return The AuthApi interface
+     */
+    fun getAuthApi(): AuthApi {
+        return authRetrofit.create(AuthApi::class.java)
     }
 
 }
