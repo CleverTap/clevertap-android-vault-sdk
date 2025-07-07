@@ -62,6 +62,12 @@ class TokenRepositoryImpl(
     }
 
     /**
+     * Flag to track if encryption should be temporarily disabled due to backend decryption failures
+     */
+    @Volatile
+    private var encryptionDisabledDueToFailure = false
+
+    /**
      * Tokenizes a single sensitive value without encryption over transit.
      *
      * This method replaces a sensitive value with a format-preserving token by:
@@ -405,8 +411,9 @@ class TokenRepositoryImpl(
      * 1. Checking the cache for an existing token (if caching is enabled)
      * 2. If not in cache, encrypting the value using AES-GCM encryption
      * 3. Making an API call with the encrypted payload
-     * 4. Decrypting the response
-     * 5. Storing the result in cache (if caching is enabled)
+     * 4. Handling 419 status code by falling back to non-encrypted tokenization
+     * 5. Decrypting the response
+     * 6. Storing the result in cache (if caching is enabled)
      *
      * @param value The sensitive value to tokenize
      * @return A [TokenizeResult] containing either the token or an error message
@@ -426,21 +433,21 @@ class TokenRepositoryImpl(
             }
         }
 
+        // Check if encryption is enabled and not disabled due to failure
+        if (!encryptionManager.isEnabled() || encryptionDisabledDueToFailure) {
+            logger.d("Encryption is disabled or failed, falling back to non-encrypted tokenization")
+            return tokenize(value)
+        }
+
         // Not in cache, call the API with encryption
         return try {
             val accessToken = authRepository.getAccessToken()
             val apiService = networkProvider.getTokenizationApi()
 
-            // Handle encryption
-            if (!encryptionManager.isEnabled()) {
-                logger.e("Encryption is not enabled but tokenizeWithEncryptionOverTransit was called")
-                return TokenizeResult.Error("Encryption is not enabled")
-            }
-
             val encryptionResult = encryptionManager.encrypt(value)
             if (encryptionResult !is EncryptionSuccess) {
-                logger.e("Encryption failed")
-                return TokenizeResult.Error("Encryption failed")
+                logger.e("Encryption failed, falling back to non-encrypted tokenization")
+                return tokenize(value)
             }
 
             val encryptedRequest = EncryptedRequest(
@@ -449,39 +456,47 @@ class TokenRepositoryImpl(
                 iv = encryptionResult.iv
             )
 
-            val response = executeWithRetry {
-                apiService.tokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
-            }
-
-            if (response.isSuccessful && response.body() != null) {
-                val encryptedResponse = response.body()!!
-
-                // Decrypt the response and parse into TokenizeResponse
-                val tokenResponse = decryptAndParseResponse(
-                    encryptedResponse.encryptedPayload,
-                    encryptedResponse.iv,
-                    TokenizeResponse::class.java
-                )
-
-                if (tokenResponse == null) {
-                    return TokenizeResult.Error("Failed to decrypt or parse response")
+            val response = executeWithRetryForEncryption(
+                encryptedCall = {
+                    apiService.tokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
+                },
+                fallbackCall = {
+                    tokenize(value)
                 }
+            )
 
-                // Cache the result if enabled
-                if (tokenCache.isEnabled()) {
-                    tokenCache.putToken(value, tokenResponse.token)
+            // Handle the response based on its type
+            return when (response) {
+                is EncryptedApiResponse -> {
+                    // Decrypt the response and parse into TokenizeResponse
+                    val tokenResponse = decryptAndParseResponse(
+                        response.encryptedPayload,
+                        response.iv,
+                        TokenizeResponse::class.java
+                    )
+
+                    if (tokenResponse == null) {
+                        return TokenizeResult.Error("Failed to decrypt or parse response")
+                    }
+
+                    // Cache the result if enabled
+                    if (tokenCache.isEnabled()) {
+                        tokenCache.putToken(value, tokenResponse.token)
+                    }
+
+                    TokenizeResult.Success(
+                        token = tokenResponse.token,
+                        exists = tokenResponse.exists,
+                        newlyCreated = tokenResponse.newlyCreated,
+                        dataType = tokenResponse.dataType
+                    )
                 }
-
-                TokenizeResult.Success(
-                    token = tokenResponse.token,
-                    exists = tokenResponse.exists,
-                    newlyCreated = tokenResponse.newlyCreated,
-                    dataType = tokenResponse.dataType
-                )
-            } else {
-                val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                logger.e("Encrypted tokenization failed: ${response.code()} - $errorBody")
-                TokenizeResult.Error("Encrypted tokenization failed: ${response.code()} - $errorBody")
+                is FallbackResponse -> {
+                    response.result as TokenizeResult
+                }
+                is ErrorResponse -> {
+                    TokenizeResult.Error(response.message)
+                }
             }
         } catch (e: Exception) {
             logger.e("Error during encrypted tokenization", e)
@@ -496,8 +511,9 @@ class TokenRepositoryImpl(
      * 1. Checking the cache for the original value (if caching is enabled)
      * 2. If not in cache, encrypting the request using AES-GCM encryption
      * 3. Making an API call with the encrypted payload
-     * 4. Decrypting the response
-     * 5. Storing the result in cache (if caching is enabled)
+     * 4. Handling 419 status code by falling back to non-encrypted detokenization
+     * 5. Decrypting the response
+     * 6. Storing the result in cache (if caching is enabled)
      *
      * @param token The token to detokenize
      * @return A [DetokenizeResult] containing either the original value or an error message
@@ -516,16 +532,16 @@ class TokenRepositoryImpl(
             }
         }
 
+        // Check if encryption is enabled and not disabled due to failure
+        if (!encryptionManager.isEnabled() || encryptionDisabledDueToFailure) {
+            logger.d("Encryption is disabled or failed, falling back to non-encrypted detokenization")
+            return detokenize(token)
+        }
+
         // Not in cache, call the API with encryption
         try {
             val accessToken = authRepository.getAccessToken()
             val apiService = networkProvider.getTokenizationApi()
-
-            // Handle encryption
-            if (!encryptionManager.isEnabled()) {
-                logger.e("Encryption is not enabled but detokenizeWithEncryptionOverTransit was called")
-                return DetokenizeResult.Error("Encryption is not enabled")
-            }
 
             // Encrypt the detokenize request
             val request = DetokenizeRequest(token)
@@ -534,8 +550,8 @@ class TokenRepositoryImpl(
 
             val encryptionResult = encryptionManager.encrypt(requestJson)
             if (encryptionResult !is EncryptionSuccess) {
-                logger.e("Encryption failed")
-                return DetokenizeResult.Error("Encryption failed")
+                logger.e("Encryption failed, falling back to non-encrypted detokenization")
+                return detokenize(token)
             }
 
             val encryptedRequest = EncryptedRequest(
@@ -544,38 +560,45 @@ class TokenRepositoryImpl(
                 iv = encryptionResult.iv
             )
 
-            val response = executeWithRetry {
-                apiService.detokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
-            }
-
-            if (response.isSuccessful && response.body() != null) {
-                val encryptedResponse = response.body()!!
-
-                // Decrypt and parse the response
-                val detokenizeResponse = decryptAndParseResponse(
-                    encryptedResponse.encryptedPayload,
-                    encryptedResponse.iv,
-                    DetokenizeResponse::class.java
-                )
-
-                if (detokenizeResponse == null) {
-                    return DetokenizeResult.Error("Failed to decrypt or parse response")
+            val response = executeWithRetryForEncryption(
+                encryptedCall = {
+                    apiService.detokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
+                },
+                fallbackCall = {
+                    detokenize(token)
                 }
+            )
 
-                // Cache the result if enabled and exists
-                if (tokenCache.isEnabled() && detokenizeResponse.exists && detokenizeResponse.value != null) {
-                    tokenCache.putValue(token, detokenizeResponse.value)
+            return when (response) {
+                is EncryptedApiResponse -> {
+                    // Decrypt and parse the response
+                    val detokenizeResponse = decryptAndParseResponse(
+                        response.encryptedPayload,
+                        response.iv,
+                        DetokenizeResponse::class.java
+                    )
+
+                    if (detokenizeResponse == null) {
+                        return DetokenizeResult.Error("Failed to decrypt or parse response")
+                    }
+
+                    // Cache the result if enabled and exists
+                    if (tokenCache.isEnabled() && detokenizeResponse.exists && detokenizeResponse.value != null) {
+                        tokenCache.putValue(token, detokenizeResponse.value)
+                    }
+
+                    DetokenizeResult.Success(
+                        value = detokenizeResponse.value,
+                        exists = detokenizeResponse.exists,
+                        dataType = detokenizeResponse.dataType
+                    )
                 }
-
-                return DetokenizeResult.Success(
-                    value = detokenizeResponse.value,
-                    exists = detokenizeResponse.exists,
-                    dataType = detokenizeResponse.dataType
-                )
-            } else {
-                val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                logger.e("Encrypted detokenization failed: ${response.code()} - $errorBody")
-                return DetokenizeResult.Error("Encrypted detokenization failed: ${response.code()} - $errorBody")
+                is FallbackResponse -> {
+                    response.result as DetokenizeResult
+                }
+                is ErrorResponse -> {
+                    DetokenizeResult.Error(response.message)
+                }
             }
         } catch (e: Exception) {
             logger.e("Error during encrypted detokenization", e)
@@ -591,9 +614,10 @@ class TokenRepositoryImpl(
      * 2. Checking the cache for existing tokens (if caching is enabled)
      * 3. Encrypting the entire batch request
      * 4. Making a batch API call with the encrypted payload
-     * 5. Decrypting the response
-     * 6. Updating the cache with new results
-     * 7. Combining cached and new results
+     * 5. Handling 419 status code by falling back to non-encrypted batch tokenization
+     * 6. Decrypting the response
+     * 7. Updating the cache with new results
+     * 8. Combining cached and new results
      *
      * @param values The list of sensitive values to tokenize
      * @return A [BatchTokenizeResult] containing the results or an error message
@@ -608,10 +632,10 @@ class TokenRepositoryImpl(
             return BatchTokenizeResult.Error("Batch size exceeds the maximum limit of $MAX_BATCH_SIZE_TOKENIZE values")
         }
 
-        // Check if encryption is enabled
-        if (!encryptionManager.isEnabled()) {
-            logger.e("Encryption is not enabled but batchTokenizeWithEncryptionOverTransit was called")
-            return BatchTokenizeResult.Error("Encryption is not enabled")
+        // Check if encryption is enabled and not disabled due to failure
+        if (!encryptionManager.isEnabled() || encryptionDisabledDueToFailure) {
+            logger.d("Encryption is disabled or failed, falling back to non-encrypted batch tokenization")
+            return batchTokenize(values)
         }
 
         // First check cache for all values if enabled
@@ -667,8 +691,8 @@ class TokenRepositoryImpl(
             // Encrypt the batch request JSON
             val encryptionResult = encryptionManager.encrypt(requestJson)
             if (encryptionResult !is EncryptionSuccess) {
-                logger.e("Encryption failed for batch request")
-                return BatchTokenizeResult.Error("Encryption failed for batch request")
+                logger.e("Encryption failed for batch request, falling back to non-encrypted")
+                return batchTokenize(values)
             }
 
             val encryptedRequest = EncryptedRequest(
@@ -677,50 +701,56 @@ class TokenRepositoryImpl(
                 iv = encryptionResult.iv
             )
 
-            // Send encrypted batch request
-            val response = executeWithRetry {
-                apiService.batchTokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
-            }
-
-            if (response.isSuccessful && response.body() != null) {
-                val encryptedResponse = response.body()!!
-
-                // Decrypt the response
-                val batchResponse = decryptAndParseResponse(
-                    encryptedResponse.encryptedPayload,
-                    encryptedResponse.iv,
-                    BatchTokenizeResponse::class.java
-                )
-
-                if (batchResponse == null) {
-                    return BatchTokenizeResult.Error("Failed to decrypt or parse batch response")
+            val response = executeWithRetryForEncryption(
+                encryptedCall = {
+                    apiService.batchTokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
+                },
+                fallbackCall = {
+                    batchTokenize(values)
                 }
+            )
 
-                // Cache the results if enabled
-                if (tokenCache.isEnabled()) {
-                    batchResponse.results.forEach { item ->
-                        if (item.exists || item.newlyCreated) {
-                            tokenCache.putToken(item.originalValue, item.token)
-                            tokenCache.putValue(item.token, item.originalValue)
+            return when (response) {
+                is EncryptedApiResponse -> {
+                    // Decrypt the response
+                    val batchResponse = decryptAndParseResponse(
+                        response.encryptedPayload,
+                        response.iv,
+                        BatchTokenizeResponse::class.java
+                    )
+
+                    if (batchResponse == null) {
+                        return BatchTokenizeResult.Error("Failed to decrypt or parse batch response")
+                    }
+
+                    // Cache the results if enabled
+                    if (tokenCache.isEnabled()) {
+                        batchResponse.results.forEach { item ->
+                            if (item.exists || item.newlyCreated) {
+                                tokenCache.putToken(item.originalValue, item.token)
+                                tokenCache.putValue(item.token, item.originalValue)
+                            }
                         }
                     }
-                }
 
-                // Combine cached results with new results
-                results.addAll(batchResponse.results)
+                    // Combine cached results with new results
+                    results.addAll(batchResponse.results)
 
-                return BatchTokenizeResult.Success(
-                    results = results,
-                    summary = BatchTokenizeSummary(
-                        processedCount = results.size,
-                        existingCount = results.count { it.exists },
-                        newlyCreatedCount = results.count { it.newlyCreated }
+                    BatchTokenizeResult.Success(
+                        results = results,
+                        summary = BatchTokenizeSummary(
+                            processedCount = results.size,
+                            existingCount = results.count { it.exists },
+                            newlyCreatedCount = results.count { it.newlyCreated }
+                        )
                     )
-                )
-            } else {
-                val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                logger.e("Encrypted batch tokenization failed: ${response.code()} - $errorBody")
-                return BatchTokenizeResult.Error("Encrypted batch tokenization failed: ${response.code()} - $errorBody")
+                }
+                is FallbackResponse -> {
+                    response.result as BatchTokenizeResult
+                }
+                is ErrorResponse -> {
+                    BatchTokenizeResult.Error(response.message)
+                }
             }
         } catch (e: Exception) {
             logger.e("Error during encrypted batch tokenization", e)
@@ -736,9 +766,10 @@ class TokenRepositoryImpl(
      * 2. Checking the cache for existing values (if caching is enabled)
      * 3. Encrypting the entire batch request
      * 4. Making a batch API call with the encrypted payload
-     * 5. Decrypting the response
-     * 6. Updating the cache with new results
-     * 7. Combining cached and new results
+     * 5. Handling 419 status code by falling back to non-encrypted batch detokenization
+     * 6. Decrypting the response
+     * 7. Updating the cache with new results
+     * 8. Combining cached and new results
      *
      * @param tokens The list of tokens to detokenize
      * @return A [BatchDetokenizeResult] containing the results or an error message
@@ -753,10 +784,10 @@ class TokenRepositoryImpl(
             return BatchDetokenizeResult.Error("Batch size exceeds the maximum limit of $MAX_BATCH_SIZE_DETOKENIZE tokens")
         }
 
-        // Check if encryption is enabled
-        if (!encryptionManager.isEnabled()) {
-            logger.e("Encryption is not enabled but batchDetokenizeWithEncryptionOverTransit was called")
-            return BatchDetokenizeResult.Error("Encryption is not enabled")
+        // Check if encryption is enabled and not disabled due to failure
+        if (!encryptionManager.isEnabled() || encryptionDisabledDueToFailure) {
+            logger.d("Encryption is disabled or failed, falling back to non-encrypted batch detokenization")
+            return batchDetokenize(tokens)
         }
 
         // First check cache for all tokens if enabled
@@ -811,8 +842,8 @@ class TokenRepositoryImpl(
             // Encrypt the batch request JSON
             val encryptionResult = encryptionManager.encrypt(requestJson)
             if (encryptionResult !is EncryptionSuccess) {
-                logger.e("Encryption failed for batch request")
-                return BatchDetokenizeResult.Error("Encryption failed for batch request")
+                logger.e("Encryption failed for batch request, falling back to non-encrypted")
+                return batchDetokenize(tokens)
             }
 
             val encryptedRequest = EncryptedRequest(
@@ -821,54 +852,142 @@ class TokenRepositoryImpl(
                 iv = encryptionResult.iv
             )
 
-            // Send encrypted batch request
-            val response = executeWithRetry {
-                apiService.batchDetokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
-            }
-
-            if (response.isSuccessful && response.body() != null) {
-                val encryptedResponse = response.body()!!
-
-                // Decrypt the response
-                val batchResponse = decryptAndParseResponse(
-                    encryptedResponse.encryptedPayload,
-                    encryptedResponse.iv,
-                    BatchDetokenizeResponse::class.java
-                )
-
-                if (batchResponse == null) {
-                    return BatchDetokenizeResult.Error("Failed to decrypt or parse batch response")
+            val response = executeWithRetryForEncryption(
+                encryptedCall = {
+                    apiService.batchDetokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
+                },
+                fallbackCall = {
+                    batchDetokenize(tokens)
                 }
+            )
 
-                // Cache the results if enabled
-                if (tokenCache.isEnabled()) {
-                    batchResponse.results.forEach { item ->
-                        if (item.exists && item.value != null) {
-                            tokenCache.putValue(item.token, item.value)
+            return when (response) {
+                is EncryptedApiResponse -> {
+                    // Decrypt the response
+                    val batchResponse = decryptAndParseResponse(
+                        response.encryptedPayload,
+                        response.iv,
+                        BatchDetokenizeResponse::class.java
+                    )
+
+                    if (batchResponse == null) {
+                        return BatchDetokenizeResult.Error("Failed to decrypt or parse batch response")
+                    }
+
+                    // Cache the results if enabled
+                    if (tokenCache.isEnabled()) {
+                        batchResponse.results.forEach { item ->
+                            if (item.exists && item.value != null) {
+                                tokenCache.putValue(item.token, item.value)
+                            }
                         }
                     }
-                }
 
-                // Combine cached results with new results
-                results.addAll(batchResponse.results)
+                    // Combine cached results with new results
+                    results.addAll(batchResponse.results)
 
-                return BatchDetokenizeResult.Success(
-                    results = results,
-                    summary = BatchDetokenizeSummary(
-                        processedCount = results.size,
-                        foundCount = results.count { it.exists },
-                        notFoundCount = results.count { !it.exists }
+                    BatchDetokenizeResult.Success(
+                        results = results,
+                        summary = BatchDetokenizeSummary(
+                            processedCount = results.size,
+                            foundCount = results.count { it.exists },
+                            notFoundCount = results.count { !it.exists }
+                        )
                     )
-                )
-            } else {
-                val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                logger.e("Encrypted batch detokenization failed: ${response.code()} - $errorBody")
-                return BatchDetokenizeResult.Error("Encrypted batch detokenization failed: ${response.code()} - $errorBody")
+                }
+                is FallbackResponse -> {
+                    response.result as BatchDetokenizeResult
+                }
+                is ErrorResponse -> {
+                    BatchDetokenizeResult.Error(response.message)
+                }
             }
         } catch (e: Exception) {
             logger.e("Error during encrypted batch detokenization", e)
             return BatchDetokenizeResult.Error("Error during encrypted batch detokenization: ${e.message}")
         }
+    }
+
+    /**
+     * Sealed class to represent different types of responses from encrypted API calls
+     */
+    private sealed class EncryptedCallResponse
+    private data class EncryptedApiResponse(val encryptedPayload: String, val iv: String) : EncryptedCallResponse()
+    private data class FallbackResponse(val result: Any) : EncryptedCallResponse()
+    private data class ErrorResponse(val message: String) : EncryptedCallResponse()
+
+    /**
+     * Executes an encrypted API call with fallback to non-encrypted version on 419 error.
+     *
+     * @param encryptedCall The encrypted API call to execute
+     * @param fallbackCall The fallback non-encrypted call to execute on 419 error
+     * @return The response from either the encrypted call or the fallback call
+     */
+    private suspend fun executeWithRetryForEncryption(
+        encryptedCall: suspend () -> retrofit2.Response<com.clevertap.android.vault.sdk.model.EncryptedResponse>,
+        fallbackCall: suspend () -> Any
+    ): EncryptedCallResponse {
+        var retryCount = 0
+        var lastException: Exception? = null
+
+        while (retryCount < MAX_RETRY_COUNT) {
+            try {
+                val response = encryptedCall()
+
+                when (response.code()) {
+                    419 -> {
+                        // Decryption failure on backend, disable encryption and fallback
+                        logger.w("Received 419 - Backend decryption failure, disabling encryption and falling back to non-encrypted requests")
+                        encryptionDisabledDueToFailure = true
+                        val fallbackResult = fallbackCall()
+                        return FallbackResponse(fallbackResult)
+                    }
+                    401 -> {
+                        // Unauthorized, refresh token and retry
+                        logger.d("Received 401 Unauthorized, refreshing token and retrying")
+                        authRepository.refreshAccessToken()
+                        retryCount++
+                        delay(INITIAL_RETRY_DELAY_MS * (1 shl retryCount))
+                        continue
+                    }
+                    else -> {
+                        if (response.isSuccessful && response.body() != null) {
+                            val encryptedResponse = response.body()!!
+                            return EncryptedApiResponse(
+                                encryptedResponse.encryptedPayload,
+                                encryptedResponse.iv
+                            )
+                        } else {
+                            val errorBody = response.errorBody()?.string() ?: "Unknown error"
+                            logger.e("Encrypted API call failed: ${response.code()} - $errorBody")
+                            return ErrorResponse("Encrypted API call failed: ${response.code()} - $errorBody")
+                        }
+                    }
+                }
+            } catch (e: HttpException) {
+                if (e.code() == 419) {
+                    // Handle 419 in exception case as well
+                    logger.w("Received 419 HttpException - Backend decryption failure, disabling encryption and falling back")
+                    encryptionDisabledDueToFailure = true
+                    val fallbackResult = fallbackCall()
+                    return FallbackResponse(fallbackResult)
+                }
+                lastException = e
+                logger.e("HTTP exception during encrypted API call, retrying", e)
+            } catch (e: IOException) {
+                lastException = e
+                logger.e("IO exception during encrypted API call, retrying", e)
+            } catch (e: Exception) {
+                return ErrorResponse("Unexpected error during encrypted API call: ${e.message}")
+            }
+
+            retryCount++
+            if (retryCount < MAX_RETRY_COUNT) {
+                delay(INITIAL_RETRY_DELAY_MS * (1 shl retryCount))
+            }
+        }
+
+        return ErrorResponse("Failed after $MAX_RETRY_COUNT retries: ${lastException?.message}")
     }
 
     /**
@@ -898,7 +1017,7 @@ class TokenRepositoryImpl(
                     authRepository.refreshAccessToken()
                     retryCount++
                     // Exponential backoff
-                    delay(INITIAL_RETRY_DELAY_MS * (1 shl retryCount))
+                    delay(INITIAL_RETRY_DELAY_MS * (1 shl retryCount)) // TODO remove delay
                     continue
                 }
 
