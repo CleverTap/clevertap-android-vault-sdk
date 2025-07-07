@@ -81,7 +81,7 @@ interface TokenizationApi {
     @POST("api/tokenization/getToken")
     suspend fun tokenizeEncrypted(
         @Header("Authorization") authorization: String,
-        @Header("X-Clevertap-Encryption-Enabled") encryptionEnabled: Boolean = true,
+        @Header("Encrypted") encryptionEnabled: Boolean = true,
         @Body request: EncryptedRequest
     ): Response<EncryptedResponse>
 
@@ -95,7 +95,7 @@ interface TokenizationApi {
     @POST("api/tokenization/getRawValue")
     suspend fun detokenizeEncrypted(
         @Header("Authorization") authorization: String,
-        @Header("X-Clevertap-Encryption-Enabled") encryptionEnabled: Boolean = true,
+        @Header("Encrypted") encryptionEnabled: Boolean = true,
         @Body request: EncryptedRequest
     ): Response<EncryptedResponse>
 
@@ -109,7 +109,7 @@ interface TokenizationApi {
     @POST("api/tokenization/tokens/batch")
     suspend fun batchTokenizeEncrypted(
         @Header("Authorization") authorization: String,
-        @Header("X-Clevertap-Encryption-Enabled") encryptionEnabled: Boolean = true,
+        @Header("Encrypted") encryptionEnabled: Boolean = true,
         @Body request: EncryptedRequest
     ): Response<EncryptedResponse>
 
@@ -123,7 +123,7 @@ interface TokenizationApi {
     @POST("api/tokenization/tokens/values/batch")
     suspend fun batchDetokenizeEncrypted(
         @Header("Authorization") authorization: String,
-        @Header("X-Clevertap-Encryption-Enabled") encryptionEnabled: Boolean = true,
+        @Header("Encrypted") encryptionEnabled: Boolean = true,
         @Body request: EncryptedRequest
     ): Response<EncryptedResponse>
 }
