@@ -453,7 +453,7 @@ class TokenRepositoryImpl(
             val encryptedRequest = EncryptedRequest(
                 itp = encryptionResult.encryptedPayload,
                 itk = encryptionResult.sessionKey,
-                iv = encryptionResult.iv
+                itv = encryptionResult.iv
             )
 
             val response = executeWithRetryForEncryption(
@@ -557,7 +557,7 @@ class TokenRepositoryImpl(
             val encryptedRequest = EncryptedRequest(
                 itp = encryptionResult.encryptedPayload,
                 itk = encryptionResult.sessionKey,
-                iv = encryptionResult.iv
+                itv = encryptionResult.iv
             )
 
             val response = executeWithRetryForEncryption(
@@ -698,7 +698,7 @@ class TokenRepositoryImpl(
             val encryptedRequest = EncryptedRequest(
                 itp = encryptionResult.encryptedPayload,
                 itk = encryptionResult.sessionKey,
-                iv = encryptionResult.iv
+                itv = encryptionResult.iv
             )
 
             val response = executeWithRetryForEncryption(
@@ -849,7 +849,7 @@ class TokenRepositoryImpl(
             val encryptedRequest = EncryptedRequest(
                 itp = encryptionResult.encryptedPayload,
                 itk = encryptionResult.sessionKey,
-                iv = encryptionResult.iv
+                itv = encryptionResult.iv
             )
 
             val response = executeWithRetryForEncryption(
@@ -954,8 +954,8 @@ class TokenRepositoryImpl(
                         if (response.isSuccessful && response.body() != null) {
                             val encryptedResponse = response.body()!!
                             return EncryptedApiResponse(
-                                encryptedResponse.encryptedPayload,
-                                encryptedResponse.iv
+                                encryptedResponse.itp,
+                                encryptedResponse.itv
                             )
                         } else {
                             val errorBody = response.errorBody()?.string() ?: "Unknown error"

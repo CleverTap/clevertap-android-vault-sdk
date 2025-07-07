@@ -112,13 +112,13 @@ data class BatchDetokenizeSummary(
 data class EncryptedRequest(
     val itp: String,
     val itk: String,
-    val iv: String
+    val itv: String
 )
 
 /**
  * Encrypted response model
  */
 data class EncryptedResponse(
-    val encryptedPayload: String,
-    val iv: String
+    val itp: String,
+    val itv: String
 )
