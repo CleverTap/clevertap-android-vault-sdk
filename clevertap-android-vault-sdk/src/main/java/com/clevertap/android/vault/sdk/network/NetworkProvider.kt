@@ -2,7 +2,10 @@ package com.clevertap.android.vault.sdk.network
 
 import com.clevertap.android.vault.sdk.api.AuthApi
 import com.clevertap.android.vault.sdk.api.TokenizationApi
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -29,6 +32,13 @@ class NetworkProvider(
         private const val WRITE_TIMEOUT_SECONDS = 30L // TODO final value
     }
 
+    val logging : HttpLoggingInterceptor= HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
+
+    private val gson: Gson by lazy {
+        GsonBuilder()
+            .disableHtmlEscaping() // This prevents = and + from being escaped
+            .create()
+    }
     /**
      * Lazily initialized OkHttpClient with configured timeouts
      */
@@ -37,6 +47,7 @@ class NetworkProvider(
             .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .addInterceptor(logging)
             .build()
     }
 
@@ -47,7 +58,7 @@ class NetworkProvider(
         Retrofit.Builder()
             .baseUrl(apiUrl)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(/*gson*/))
             .build()
     }
 

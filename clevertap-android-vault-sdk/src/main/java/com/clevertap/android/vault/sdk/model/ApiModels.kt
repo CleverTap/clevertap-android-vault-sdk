@@ -1,13 +1,19 @@
 package com.clevertap.android.vault.sdk.model
 
+import com.google.gson.annotations.SerializedName
+
 //TODO: check possible nullable fields
 /**
  * Authentication token response
  */
 data class AuthTokenResponse(
+    @SerializedName("access_token")
     val accessToken: String,
+    @SerializedName("expires_in")
     val expiresIn: Int,
+    @SerializedName("refresh_expires_in")
     val refreshExpiresIn: Int,
+    @SerializedName("token_type")
     val tokenType: String,
     val scope: String
 )

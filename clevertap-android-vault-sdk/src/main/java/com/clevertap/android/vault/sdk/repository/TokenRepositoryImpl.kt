@@ -24,6 +24,7 @@ import com.clevertap.android.vault.sdk.model.TokenizeResult
 import com.clevertap.android.vault.sdk.network.NetworkProvider
 import com.clevertap.android.vault.sdk.util.VaultLogger
 import kotlinx.coroutines.delay
+import org.json.JSONObject
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -444,7 +445,7 @@ class TokenRepositoryImpl(
             val accessToken = authRepository.getAccessToken()
             val apiService = networkProvider.getTokenizationApi()
 
-            val encryptionResult = encryptionManager.encrypt(value)
+            val encryptionResult = encryptionManager.encrypt(JSONObject().apply { this.put("value",value) }.toString())
             if (encryptionResult !is EncryptionSuccess) {
                 logger.e("Encryption failed, falling back to non-encrypted tokenization")
                 return tokenize(value)
