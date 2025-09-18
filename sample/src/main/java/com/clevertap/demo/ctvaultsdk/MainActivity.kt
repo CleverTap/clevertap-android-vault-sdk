@@ -3,22 +3,25 @@ package com.clevertap.demo.ctvaultsdk
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.clevertap.android.vault.sdk.VaultSDK
-import com.clevertap.android.vault.sdk.model.*
+import com.clevertap.android.vault.sdk.model.BatchDetokenItem
+import com.clevertap.android.vault.sdk.model.BatchDetokenizeResult
+import com.clevertap.android.vault.sdk.model.BatchTokenizeResult
+import com.clevertap.android.vault.sdk.model.DetokenizeResult
+import com.clevertap.android.vault.sdk.model.TokenizeResult
 import com.clevertap.demo.ctvaultsdk.adapter.TokenResultAdapter
-import com.clevertap.demo.ctvaultsdk.model.TokenDisplayItem
 import com.clevertap.demo.ctvaultsdk.model.SampleDataProvider
+import com.clevertap.demo.ctvaultsdk.model.TokenDisplayItem
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
-import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.textfield.TextInputEditText
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -543,23 +546,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun showImportTokensDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Import Tokens for Detokenization")
-            .setMessage("To perform batch detokenization with imported data, you need to import a file containing tokens (not values).\n\nWould you like to:\n• Import a new file with tokens, or\n• Use existing tokens from previous operations?")
-            .setPositiveButton("Import Tokens") { _, _ ->
-                // Clear current imported data and let user import tokens
-                clearImportedData()
-                showToast("Please select a file containing comma-separated tokens")
-                openFilePicker()
-            }
-            .setNegativeButton("Use Existing") { _, _ ->
-                batchDetokenizeTokens()
-            }
-            .setNeutralButton("Cancel", null)
-            .show()
     }
 
     // ========================================

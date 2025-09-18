@@ -276,11 +276,3 @@ private fun getDataTypeIcon(dataType: MainActivity.DataType): String {
         MainActivity.DataType.BOOLEAN -> "✅"
     }
 }
-
-/**
- * Helper function to format timestamps
- */
-fun Long.toTimeString(): String {
-    val date = java.util.Date(this)
-    return java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(date)
-}
