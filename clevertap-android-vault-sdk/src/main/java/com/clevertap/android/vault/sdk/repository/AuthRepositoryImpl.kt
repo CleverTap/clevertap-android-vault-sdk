@@ -58,13 +58,8 @@ class AuthRepositoryImpl(
      */
     override suspend fun getAccessToken(): String {
         mutex.withLock {
-            val currentTime = System.currentTimeMillis()
-
             // Check if token is still valid (with a 30-second buffer)
-            if (accessToken != null && currentTime < accessTokenExpiration - TimeUnit.SECONDS.toMillis(
-                    30
-                )
-            ) {
+            if (isTokenValid()) {
                 logger.d("Using existing auth token")
                 return accessToken!!
             }
@@ -88,7 +83,7 @@ class AuthRepositoryImpl(
      * @throws Exception If the network request fails or returns an error response
      */
     override suspend fun refreshAccessToken(): String {
-        val authApi = networkProvider.getAuthApi()
+        val authApi = networkProvider.authApi
 
         val requestParams = mapOf(
             "grant_type" to "client_credentials",
@@ -119,7 +114,7 @@ class AuthRepositoryImpl(
 
         // Calculate expiration time (current time + expiresIn seconds)
         accessTokenExpiration =
-            System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(tokenResponse.expiresIn.toLong())
+            getNowInMillis() + TimeUnit.SECONDS.toMillis(tokenResponse.expiresIn.toLong())
 
         logger.d("Auth token refreshed, expires in ${tokenResponse.expiresIn} seconds")
     }
@@ -137,9 +132,11 @@ class AuthRepositoryImpl(
      * @return True if the token is valid and not near expiration, false otherwise
      */
     override fun isTokenValid(): Boolean {
-        val currentTime = System.currentTimeMillis()
+        val currentTime = getNowInMillis()
         return accessToken != null && currentTime < accessTokenExpiration - TimeUnit.SECONDS.toMillis(
             30
         )
     }
+
+    internal fun getNowInMillis() = System.currentTimeMillis()
 }

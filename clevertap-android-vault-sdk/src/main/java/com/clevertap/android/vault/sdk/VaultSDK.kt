@@ -9,9 +9,10 @@ import com.clevertap.android.vault.sdk.model.TokenizeResult
 import com.clevertap.android.vault.sdk.network.NetworkProvider
 import com.clevertap.android.vault.sdk.repository.AuthRepository
 import com.clevertap.android.vault.sdk.repository.AuthRepositoryImpl
-import com.clevertap.android.vault.sdk.repository.TokenRepository
 import com.clevertap.android.vault.sdk.repository.TokenRepositoryImpl
+import com.clevertap.android.vault.sdk.repository.TokenRepository
 import com.clevertap.android.vault.sdk.util.VaultLogger
+import com.clevertap.android.vault.sdk.util.toPublicResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,11 +30,11 @@ class VaultSDK private constructor(
     private val authUrl: String,
     private val enableEncryption: Boolean,
     private val enableCache: Boolean,
-    private val debugMode: Boolean
+    private val logLevel: Int
 ) {
-    private val sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private lateinit var tokenRepository: TokenRepository
-    private lateinit var authRepository: AuthRepository
+    internal var sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    internal lateinit var tokenRepository: TokenRepository
+    internal lateinit var authRepository: AuthRepository
     private lateinit var encryptionManager: EncryptionManager
     private lateinit var tokenCache: TokenCache
     private lateinit var logger: VaultLogger
@@ -43,7 +44,7 @@ class VaultSDK private constructor(
     }
 
     private fun initialize() {
-        logger = VaultLogger(debugMode)
+        logger = VaultLogger(logLevel)
 
         logger.d("Initializing VaultSDK")
 
@@ -64,128 +65,246 @@ class VaultSDK private constructor(
             logger
         )
 
-        tokenRepository = TokenRepositoryImpl(
-            networkProvider,
-            authRepository,
-            encryptionManager,
-            tokenCache,
-            logger
-        )
-
+        tokenRepository = TokenRepositoryImpl(networkProvider, authRepository, encryptionManager, tokenCache, logger)
         logger.d("VaultSDK initialization complete")
     }
 
+    // ========================================
+    // TOKENIZATION METHODS (Overloaded)
+    // ========================================
+
     /**
-     * Tokenizes a single sensitive value, replacing it with a format-preserving token.
-     * If encryption is enabled in the SDK configuration, it will use encryption over transit.
-     *
-     * @param value The sensitive value to tokenize
+     * Tokenizes a String value
+     * @param value The String value to tokenize
      * @param callback The callback to receive the result
      */
     fun tokenize(value: String, callback: (TokenizeResult) -> Unit) {
-        sdkScope.launch {
-            try {
-                logger.d("Tokenizing single value")
-                val result = if (enableEncryption) {
-                    tokenRepository.tokenizeWithEncryptionOverTransit(value)
-                } else {
-                    tokenRepository.tokenize(value)
-                }
-                withContext(Dispatchers.Main) {
-                    callback(result)
-                }
-            } catch (e: Exception) {
-                logger.e("Error tokenizing value", e)
-                withContext(Dispatchers.Main) {
-                    callback(TokenizeResult.Error(e.message ?: "Unknown error occurred"))
-                }
-            }
-        }
+        performTokenization(value, String::class.java, callback)
     }
 
     /**
-     * Retrieves the original value for a given token.
-     * If encryption is enabled in the SDK configuration, it will use encryption over transit.
-     *
+     * Tokenizes an Int value
+     * @param value The Int value to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun tokenize(value: Int, callback: (TokenizeResult) -> Unit) {
+        performTokenization(value, Int::class.java, callback)
+    }
+
+    /**
+     * Tokenizes a Long value
+     * @param value The Long value to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun tokenize(value: Long, callback: (TokenizeResult) -> Unit) {
+        performTokenization(value, Long::class.java, callback)
+    }
+
+    /**
+     * Tokenizes a Float value
+     * @param value The Float value to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun tokenize(value: Float, callback: (TokenizeResult) -> Unit) {
+        performTokenization(value, Float::class.java, callback)
+    }
+
+    /**
+     * Tokenizes a Double value
+     * @param value The Double value to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun tokenize(value: Double, callback: (TokenizeResult) -> Unit) {
+        performTokenization(value, Double::class.java, callback)
+    }
+
+    /**
+     * Tokenizes a Boolean value
+     * @param value The Boolean value to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun tokenize(value: Boolean, callback: (TokenizeResult) -> Unit) {
+        performTokenization(value, Boolean::class.java, callback)
+    }
+
+    // ========================================
+    // DETOKENIZATION METHODS (Type-Specific)
+    // ========================================
+
+    /**
+     * Detokenizes a token and returns the result as String
      * @param token The token to detokenize
      * @param callback The callback to receive the result
      */
-    fun detokenize(token: String, callback: (DetokenizeResult) -> Unit) {
-        sdkScope.launch {
-            try {
-                logger.d("Detokenizing single token")
-                val result = if (enableEncryption) {
-                    tokenRepository.detokenizeWithEncryptionOverTransit(token)
-                } else {
-                    tokenRepository.detokenize(token)
-                }
-                withContext(Dispatchers.Main) {
-                    callback(result)
-                }
-            } catch (e: Exception) {
-                logger.e("Error detokenizing token", e)
-                withContext(Dispatchers.Main) {
-                    callback(DetokenizeResult.Error(e.message ?: "Unknown error occurred"))
-                }
-            }
-        }
+    fun deTokenizeAsString(token: String, callback: (DetokenizeResult<String>) -> Unit) {
+        performDetokenization(token, String::class.java, callback)
     }
 
-
     /**
-     * Tokenizes multiple sensitive values in a single batch operation.
-     * If encryption is enabled in the SDK configuration, it will use encryption over transit.
-     *
-     * @param values The list of sensitive values to tokenize
+     * Detokenizes a token and returns the result as Int
+     * @param token The token to detokenize
      * @param callback The callback to receive the result
      */
-    fun batchTokenize(values: List<String>, callback: (BatchTokenizeResult) -> Unit) {
-        sdkScope.launch {
-            try {
-                logger.d("Tokenizing batch of ${values.size} values")
-                val result = if (enableEncryption) {
-                    tokenRepository.batchTokenizeWithEncryptionOverTransit(values)
-                } else {
-                    tokenRepository.batchTokenize(values)
-                }
-                withContext(Dispatchers.Main) {
-                    callback(result)
-                }
-            } catch (e: Exception) {
-                logger.e("Error batch tokenizing values", e)
-                withContext(Dispatchers.Main) {
-                    callback(BatchTokenizeResult.Error(e.message ?: "Unknown error occurred"))
-                }
-            }
-        }
+    fun deTokenizeAsInt(token: String, callback: (DetokenizeResult<Int>) -> Unit) {
+        performDetokenization(token, Int::class.java, callback)
     }
 
     /**
-     * Retrieves the original values for multiple tokens in a single batch operation.
-     * If encryption is enabled in the SDK configuration, it will use encryption over transit.
+     * Detokenizes a token and returns the result as Long
+     * @param token The token to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun deTokenizeAsLong(token: String, callback: (DetokenizeResult<Long>) -> Unit) {
+        performDetokenization(token, Long::class.java, callback)
+    }
+
+    /**
+     * Detokenizes a token and returns the result as Float
+     * @param token The token to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun deTokenizeAsFloat(token: String, callback: (DetokenizeResult<Float>) -> Unit) {
+        performDetokenization(token, Float::class.java, callback)
+    }
+
+    /**
+     * Detokenizes a token and returns the result as Double
+     * @param token The token to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun deTokenizeAsDouble(token: String, callback: (DetokenizeResult<Double>) -> Unit) {
+        performDetokenization(token, Double::class.java, callback)
+    }
+
+    /**
+     * Detokenizes a token and returns the result as Boolean
+     * @param token The token to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun deTokenizeAsBoolean(token: String, callback: (DetokenizeResult<Boolean>) -> Unit) {
+        performDetokenization(token, Boolean::class.java, callback)
+    }
+
+    // ========================================
+    // BATCH TOKENIZATION METHODS (Overloaded)
+    // ========================================
+
+    /**
+     * Tokenizes multiple String values in a single batch operation.
      *
+     * @param values The list of String values to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchTokenizeStringValues(values: List<String>, callback: (BatchTokenizeResult) -> Unit) {
+        performBatchTokenization(values, String::class.java, callback)
+    }
+
+    /**
+     * Tokenizes multiple Int values in a single batch operation.
+     *
+     * @param values The list of Int values to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchTokenizeIntValues(values: List<Int>, callback: (BatchTokenizeResult) -> Unit) {
+        performBatchTokenization(values, Int::class.java, callback)
+    }
+
+    /**
+     * Tokenizes multiple Long values in a single batch operation.
+     *
+     * @param values The list of Long values to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchTokenizeLongValues(values: List<Long>, callback: (BatchTokenizeResult) -> Unit) {
+        performBatchTokenization(values, Long::class.java, callback)
+    }
+
+    /**
+     * Tokenizes multiple Float values in a single batch operation.
+     *
+     * @param values The list of Float values to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchTokenizeFloatValues(values: List<Float>, callback: (BatchTokenizeResult) -> Unit) {
+        performBatchTokenization(values, Float::class.java, callback)
+    }
+
+    /**
+     * Tokenizes multiple Double values in a single batch operation.
+     *
+     * @param values The list of Double values to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchTokenizeDoubleValues(values: List<Double>, callback: (BatchTokenizeResult) -> Unit) {
+        performBatchTokenization(values, Double::class.java, callback)
+    }
+
+    /**
+     * Tokenizes multiple Boolean values in a single batch operation.
+     *
+     * @param values The list of Boolean values to tokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchTokenizeBooleanValues(values: List<Boolean>, callback: (BatchTokenizeResult) -> Unit) {
+        performBatchTokenization(values, Boolean::class.java, callback)
+    }
+
+    // ========================================
+    // BATCH DETOKENIZATION METHODS (Type-Specific)
+    // ========================================
+
+    /**
+     * Detokenizes multiple tokens and returns the results as String values
      * @param tokens The list of tokens to detokenize
      * @param callback The callback to receive the result
      */
-    fun batchDetokenize(tokens: List<String>, callback: (BatchDetokenizeResult) -> Unit) {
-        sdkScope.launch {
-            try {
-                logger.d("Detokenizing batch of ${tokens.size} tokens")
-                val result = if (enableEncryption) {
-                    tokenRepository.batchDetokenizeWithEncryptionOverTransit(tokens)
-                } else {
-                    tokenRepository.batchDetokenize(tokens)
-                }
-                withContext(Dispatchers.Main) {
-                    callback(result)
-                }
-            } catch (e: Exception) {
-                logger.e("Error batch detokenizing tokens", e)
-                withContext(Dispatchers.Main) {
-                    callback(BatchDetokenizeResult.Error(e.message ?: "Unknown error occurred"))
-                }
-            }
-        }
+    fun batchDeTokenizeAsString(tokens: List<String>, callback: (BatchDetokenizeResult<String>) -> Unit) {
+        performBatchDetokenization(tokens, String::class.java, callback)
+    }
+
+    /**
+     * Detokenizes multiple tokens and returns the results as Int values
+     * @param tokens The list of tokens to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchDeTokenizeAsInt(tokens: List<String>, callback: (BatchDetokenizeResult<Int>) -> Unit) {
+        performBatchDetokenization(tokens, Int::class.java, callback)
+    }
+
+    /**
+     * Detokenizes multiple tokens and returns the results as Long values
+     * @param tokens The list of tokens to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchDeTokenizeAsLong(tokens: List<String>, callback: (BatchDetokenizeResult<Long>) -> Unit) {
+        performBatchDetokenization(tokens, Long::class.java, callback)
+    }
+
+    /**
+     * Detokenizes multiple tokens and returns the results as Float values
+     * @param tokens The list of tokens to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchDeTokenizeAsFloat(tokens: List<String>, callback: (BatchDetokenizeResult<Float>) -> Unit) {
+        performBatchDetokenization(tokens, Float::class.java, callback)
+    }
+
+    /**
+     * Detokenizes multiple tokens and returns the results as Double values
+     * @param tokens The list of tokens to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchDeTokenizeAsDouble(tokens: List<String>, callback: (BatchDetokenizeResult<Double>) -> Unit) {
+        performBatchDetokenization(tokens, Double::class.java, callback)
+    }
+
+    /**
+     * Detokenizes multiple tokens and returns the results as Boolean values
+     * @param tokens The list of tokens to detokenize
+     * @param callback The callback to receive the result
+     */
+    fun batchDeTokenizeAsBoolean(tokens: List<String>, callback: (BatchDetokenizeResult<Boolean>) -> Unit) {
+        performBatchDetokenization(tokens, Boolean::class.java, callback)
     }
 
     /**
@@ -196,31 +315,212 @@ class VaultSDK private constructor(
         tokenCache.clear()
     }
 
+    // ========================================
+    // PRIVATE IMPLEMENTATION METHODS
+    // ========================================
+
+    /**
+     * Internal method to perform tokenization with type conversion
+     */
+    private fun <T> performTokenization(
+        value: T,
+        type: Class<T>,
+        callback: (TokenizeResult) -> Unit
+    ) {
+        sdkScope.launch {
+            try {
+                logger.d("Tokenizing ${type.simpleName} value")
+
+                val converter = TypeConverterRegistry.getConverter(type)
+                if (converter == null) {
+                    withContext(Dispatchers.Main) {
+                        callback(TokenizeResult.Error("Unsupported type: ${type.simpleName}"))
+                    }
+                    return@launch
+                }
+
+                // Convert typed value to string for repository layer
+                val stringValue = converter.toString(value)
+
+                // Call repository with string value
+                val repoResult = if (enableEncryption) {
+                    tokenRepository.tokenizeWithEncryptionOverTransit(stringValue)
+                } else {
+                    tokenRepository.tokenize(stringValue)
+                }
+
+                // Convert repository result to public result
+                val publicResult = repoResult.toPublicResult()
+                logger.d("tokenization result: ${type.simpleName} value: $publicResult")
+                withContext(Dispatchers.Main) {
+                    callback(publicResult)
+                }
+            } catch (e: Exception) {
+                logger.e("Error tokenizing ${type.simpleName} value", e)
+                withContext(Dispatchers.Main) {
+                    callback(TokenizeResult.Error(e.message ?: "Unknown error occurred"))
+                }
+            }
+        }
+    }
+
+    /**
+     * Internal method to perform detokenization with type conversion
+     */
+    private fun <T> performDetokenization(
+        token: String,
+        type: Class<T>,
+        callback: (DetokenizeResult<T>) -> Unit
+    ) {
+        sdkScope.launch {
+            try {
+                logger.d("Detokenizing token to ${type.simpleName}")
+
+                val converter = TypeConverterRegistry.getConverter(type)
+                if (converter == null) {
+                    withContext(Dispatchers.Main) {
+                        callback(DetokenizeResult.Error("Unsupported type: ${type.simpleName}"))
+                    }
+                    return@launch
+                }
+
+                // Call repository to get string result
+                val repoResult = if (enableEncryption) {
+                    tokenRepository.detokenizeWithEncryptionOverTransit(token)
+                } else {
+                    tokenRepository.detokenize(token)
+                }
+
+                // Convert repository result (string) to public result (typed) using converter
+                val publicResult = repoResult.toPublicResult(converter)
+                logger.d("de-tokenization result: ${type.simpleName} value: $publicResult")
+
+                withContext(Dispatchers.Main) {
+                    callback(publicResult)
+                }
+            } catch (e: Exception) {
+                logger.e("Error detokenizing token to ${type.simpleName}", e)
+                withContext(Dispatchers.Main) {
+                    callback(DetokenizeResult.Error(e.message ?: "Unknown error occurred"))
+                }
+            }
+        }
+    }
+
+    /**
+     * Internal method to perform batch tokenization
+     */
+    private fun <T> performBatchTokenization(
+        values: List<T>,
+        type: Class<T>,
+        callback: (BatchTokenizeResult) -> Unit
+    ) {
+        sdkScope.launch {
+            try {
+                if (values.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        callback(BatchTokenizeResult.Error("Batch tokenize request contains no values"))
+                    }
+                    return@launch
+                }
+
+                logger.d("Batch tokenizing ${values.size} ${type.simpleName} values")
+
+                val converter = TypeConverterRegistry.getConverter(type)
+                if (converter == null) {
+                    withContext(Dispatchers.Main) {
+                        callback(BatchTokenizeResult.Error("Unsupported type: ${type.simpleName}"))
+                    }
+                    return@launch
+                }
+
+                // Convert typed values to strings for repository layer
+                val stringValues = values.map { converter.toString(it) }
+
+                // Call repository with string values
+                val repoResult = if (enableEncryption) {
+                    tokenRepository.batchTokenizeWithEncryptionOverTransit(stringValues)
+                } else {
+                    tokenRepository.batchTokenize(stringValues)
+                }
+
+                // Convert repository result (strings) to public result (non-generic) using converter
+                val publicResult = repoResult.toPublicResult()
+                logger.d("batch tokenization result: ${type.simpleName} values: $publicResult")
+
+                withContext(Dispatchers.Main) {
+                    callback(publicResult)
+                }
+            } catch (e: Exception) {
+                logger.e("Error batch tokenizing ${type.simpleName} values", e)
+                withContext(Dispatchers.Main) {
+                    callback(BatchTokenizeResult.Error(e.message ?: "Unknown error occurred"))
+                }
+            }
+        }
+    }
+
+    /**
+     * Internal method to perform batch detokenization
+     */
+    private fun <T> performBatchDetokenization(
+        tokens: List<String>,
+        type: Class<T>,
+        callback: (BatchDetokenizeResult<T>) -> Unit
+    ) {
+        sdkScope.launch {
+            try {
+                if (tokens.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        callback(BatchDetokenizeResult.Error("Batch detokenize request contains no tokens"))
+                    }
+                    return@launch
+                }
+
+                logger.d("Batch detokenizing ${tokens.size} tokens to ${type.simpleName}")
+
+                val converter = TypeConverterRegistry.getConverter(type)
+                if (converter == null) {
+                    withContext(Dispatchers.Main) {
+                        callback(BatchDetokenizeResult.Error("Unsupported type: ${type.simpleName}"))
+                    }
+                    return@launch
+                }
+
+                // Call repository to get string results
+                val repoResult = if (enableEncryption) {
+                    tokenRepository.batchDetokenizeWithEncryptionOverTransit(tokens)
+                } else {
+                    tokenRepository.batchDetokenize(tokens)
+                }
+
+                // Convert repository result (strings) to public result (typed) using converter
+                val publicResult = repoResult.toPublicResult(converter)
+                logger.d("batch de-tokenization result: ${type.simpleName} tokens: $publicResult")
+
+                withContext(Dispatchers.Main) {
+                    callback(publicResult)
+                }
+            } catch (e: Exception) {
+                logger.e("Error batch detokenizing tokens to ${type.simpleName}", e)
+                withContext(Dispatchers.Main) {
+                    callback(BatchDetokenizeResult.Error(e.message ?: "Unknown error occurred"))
+                }
+            }
+        }
+    }
+
     companion object {
         @Volatile
         private var INSTANCE: VaultSDK? = null
 
-        /**
-         * Initializes and returns an instance of the VaultSDK.
-         *
-         * @param clientId The OAuth2 client ID
-         * @param clientSecret The OAuth2 client secret
-         * @param apiUrl The base URL for the Vault API
-         * @param authUrl The URL for the authentication service
-         * @param enableEncryption Whether to enable encryption for API requests/responses
-         * @param enableCache Whether to enable caching of token mappings
-         * @param debugMode Whether to enable debug logging
-         * @return The VaultSDK instance
-         */
         @JvmStatic
         fun initialize(
             clientId: String,
             clientSecret: String,
             apiUrl: String,
             authUrl: String,
-            enableEncryption: Boolean = true,
-            enableCache: Boolean = true,
-            debugMode: Boolean = false
+            logLevel: VaultLogger.LogLevel = VaultLogger.LogLevel.OFF
         ): VaultSDK {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: VaultSDK(
@@ -228,9 +528,9 @@ class VaultSDK private constructor(
                     clientSecret,
                     apiUrl,
                     authUrl,
-                    enableEncryption,
-                    enableCache,
-                    debugMode
+                    enableEncryption = true,
+                    enableCache = true,
+                    logLevel = logLevel.intValue
                 ).also { INSTANCE = it }
             }
         }

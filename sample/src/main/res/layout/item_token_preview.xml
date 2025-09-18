@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="4dp"
+    android:layout_marginVertical="2dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="1dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="@color/material_dynamic_outline">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <!-- Token Type Icon -->
+        <TextView
+            android:id="@+id/tokenTypeIcon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔑"
+            android:textSize="16sp"
+            android:layout_marginEnd="8dp" />
+
+        <!-- Token Information -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- Token Value -->
+            <TextView
+                android:id="@+id/tokenValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="555-67-8901"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/material_dynamic_neutral20"
+                android:fontFamily="monospace"
+                tools:text="555-67-8901" />
+
+            <!-- Token Metadata -->
+            <TextView
+                android:id="@+id/tokenMetadata"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="String • From single tokenization"
+                android:textSize="11sp"
+                android:textColor="@color/material_dynamic_neutral50"
+                tools:text="String • From batch operation" />
+
+        </LinearLayout>
+
+        <!-- Selection Indicator -->
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/tokenCheckbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:checked="true"
+            tools:checked="true" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

@@ -3,14 +3,15 @@ package com.clevertap.android.vault.sdk.cache
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Cache for token and value mappings
+ * Cache for token and value mappings with dataType preservation
  */
 class TokenCache(
     private val enabled: Boolean
 ) {
-    // In-memory token-to-value and value-to-token maps
-    private val tokenToValueMap = ConcurrentHashMap<String, String>()
-    private val valueToTokenMap = ConcurrentHashMap<String, String>()
+    // In-memory token-to-value and value-to-token maps with dataType information
+    // Pair structure: Pair<String, String> where first = value/token, second = dataType
+    private val tokenToValueDataTypePairMap = ConcurrentHashMap<String, Pair<String, String>>()
+    private val valueToTokenDataTypePairMap = ConcurrentHashMap<String, Pair<String, String>>()
 
     /**
      * Checks if caching is enabled
@@ -20,65 +21,76 @@ class TokenCache(
     fun isEnabled(): Boolean = enabled
 
     /**
-     * Gets a token for a given value from the cache
+     * Gets a token and dataType for a given value from the cache
      *
      * @param value The value to look up
-     * @return The token if found, null otherwise
+     * @return A Pair of (token, dataType) if found, null otherwise
      */
-    fun getToken(value: String): String? {
+    fun getToken(value: String): Pair<String, String>? {
         if (!enabled) return null
-        return valueToTokenMap[value]
+        return valueToTokenDataTypePairMap[value]
     }
 
     /**
-     * Gets a value for a given token from the cache
+     * Gets a value and dataType for a given token from the cache
      *
      * @param token The token to look up
-     * @return The value if found, null otherwise
+     * @return A Pair of (value, dataType) if found, null otherwise
      */
-    fun getValue(token: String): String? {
+    fun getValue(token: String): Pair<String, String>? {
         if (!enabled) return null
-        return tokenToValueMap[token]
+        return tokenToValueDataTypePairMap[token]
     }
 
     /**
-     * Stores a token-to-value mapping in the cache
+     * Stores a token-to-value mapping with dataType in the cache
      *
      * @param token The token
      * @param value The value
+     * @param dataType The data type (nullable, defaults to "string")
      */
-    fun putValue(token: String, value: String) {
+    fun putValue(token: String, value: String, dataType: String?) {
         if (!enabled) return
-        tokenToValueMap[token] = value
+        val actualDataType = dataType ?: "string"
+        tokenToValueDataTypePairMap[token] = Pair(value, actualDataType)
     }
 
     /**
-     * Stores a value-to-token mapping in the cache
+     * Stores a value-to-token mapping with dataType in the cache
      *
      * @param value The value
      * @param token The token
+     * @param dataType The data type (nullable, defaults to "string")
      */
-    fun putToken(value: String, token: String) {
+    fun putToken(value: String, token: String, dataType: String?) {
         if (!enabled) return
-        valueToTokenMap[value] = token
+        val actualDataType = dataType ?: "string"
+        valueToTokenDataTypePairMap[value] = Pair(token, actualDataType)
+    }
+
+    /**
+     * Stores both mappings (bidirectional) with dataType in the cache
+     * This is a convenience method to ensure both directions are cached consistently
+     *
+     * @param token The token
+     * @param value The value
+     * @param dataType The data type (nullable, defaults to "string")
+     */
+    fun putBidirectional(token: String, value: String, dataType: String?) {
+        if (!enabled) return
+        val actualDataType = dataType ?: "string"
+        tokenToValueDataTypePairMap[token] = Pair(value, actualDataType)
+        valueToTokenDataTypePairMap[value] = Pair(token, actualDataType)
     }
 
     /**
      * Clears all entries from the cache
      */
+
     fun clear() {
         if (!enabled) return
-        tokenToValueMap.clear()
-        valueToTokenMap.clear()
+        tokenToValueDataTypePairMap.clear()
+        valueToTokenDataTypePairMap.clear()
     }
 
-    /**
-     * Gets the size of the cache
-     *
-     * @return The number of entries in the cache
-     */
-    fun size(): Int {
-        if (!enabled) return 0
-        return tokenToValueMap.size
-    }
 }

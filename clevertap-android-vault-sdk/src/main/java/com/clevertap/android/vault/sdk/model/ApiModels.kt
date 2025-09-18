@@ -1,13 +1,18 @@
 package com.clevertap.android.vault.sdk.model
 
-//TODO: check possible nullable fields
+import com.google.gson.annotations.SerializedName
+
 /**
  * Authentication token response
  */
 data class AuthTokenResponse(
+    @SerializedName("access_token")
     val accessToken: String,
+    @SerializedName("expires_in")
     val expiresIn: Int,
+    @SerializedName("refresh_expires_in")
     val refreshExpiresIn: Int,
+    @SerializedName("token_type")
     val tokenType: String,
     val scope: String
 )
@@ -24,7 +29,7 @@ data class TokenizeResponse(
     val token: String,
     val exists: Boolean,
     val newlyCreated: Boolean,
-    val dataType: String?  //TODO: check final data type
+    val dataType: String?
 )
 
 /**
@@ -50,7 +55,7 @@ data class BatchTokenizeRequest(val values: List<String>)
  * Response model for batch tokenization
  */
 data class BatchTokenizeResponse(
-    val results: List<BatchTokenItem>,
+    val results: List<BatchTokenItemResponse>,
     val summary: BatchTokenizeSummary
 )
 
@@ -63,19 +68,19 @@ data class BatchDetokenizeRequest(val tokens: List<String>)
  * Response model for batch detokenization
  */
 data class BatchDetokenizeResponse(
-    val results: List<BatchDetokenItem>,
+    val results: List<BatchDetokenItemResponse>,
     val summary: BatchDetokenizeSummary
 )
 
 /**
  * Result for individual item in batch tokenization
  */
-data class BatchTokenItem(
+data class BatchTokenItemResponse(
     val originalValue: String,
     val token: String,
     val exists: Boolean,
     val newlyCreated: Boolean,
-    val dataType: String? //TODO check final data type
+    val dataType: String?
 )
 
 /**
@@ -90,7 +95,7 @@ data class BatchTokenizeSummary(
 /**
  * Result for individual item in batch detokenization
  */
-data class BatchDetokenItem(
+data class BatchDetokenItemResponse(
     val token: String,
     val value: String?,
     val exists: Boolean,

@@ -7,4 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="material_dynamic_surface">#FFFBFE</color>
+    <color name="material_dynamic_surface_variant">#E7E0EC</color>
+    <color name="material_dynamic_outline">#79747E</color>
 </resources>
