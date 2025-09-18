@@ -2,6 +2,7 @@ package com.clevertap.demo.ctvaultsdk
 
 import android.app.Application
 import com.clevertap.android.vault.sdk.VaultSDK
+import com.clevertap.android.vault.sdk.util.VaultLogger
 
 class VaultSampleApplication : Application() {
 
@@ -17,11 +18,10 @@ class VaultSampleApplication : Application() {
 //                clientSecret = "",
 //                clientId = null,
 //                clientSecret =null,
-                apiUrl = "http://3.35.104.51:8080/ct-vault/",
+                apiUrl = "https://vault.clevertap-kishlaya.net/ct-vault/",
                 authUrl = "https://auth-test.clevertap.net/auth/realms/master/",
-                enableEncryption = true,
-                enableCache = true,
-                debugMode = true
+                logLevel = VaultLogger.LogLevel.VERBOSE
+
             )
 
             android.util.Log.d("VaultSample", "Vault SDK initialized successfully")

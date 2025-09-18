@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- File Import Section -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📂 File Import"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:layout_marginBottom="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/chooseFileButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📁 Choose File (CSV, TXT, JSON)"
+                    android:textAllCaps="false" />
+
+                <TextView
+                    android:id="@+id/fileStatusText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="📄 No file selected"
+                    android:textSize="13sp"
+                    android:textColor="@color/material_dynamic_neutral50"
+                    android:fontFamily="monospace"
+                    android:background="@color/material_dynamic_neutral95"
+                    android:padding="8dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Clipboard Import Section -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📋 Clipboard Import"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:layout_marginBottom="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/pasteClipboardButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📋 Paste from Clipboard"
+                    android:textAllCaps="false"
+                    style="@style/Widget.Material3.Button.TonalButton" />
+
+                <TextView
+                    android:id="@+id/clipboardPreviewText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Clipboard preview will appear here"
+                    android:textSize="13sp"
+                    android:textColor="@color/material_dynamic_neutral50"
+                    android:fontFamily="monospace"
+                    android:background="@color/material_dynamic_neutral95"
+                    android:padding="8dp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Token Reuse Section -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔄 Token Reuse"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Use tokens from previous operations for detokenization testing"
+                    android:textSize="13sp"
+                    android:textColor="@color/material_dynamic_neutral50"
+                    android:layout_marginBottom="12dp" />
+
+                <Spinner
+                    android:id="@+id/tokenSourceSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/spinner_background"
+                    android:padding="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/useTokensButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔄 Use Available Tokens"
+                    android:textAllCaps="false"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                <!-- Available Tokens Preview (Hidden for now, could be expanded later) -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/availableTokensRecycler"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone"
+                    tools:visibility="gone"
+                    tools:listitem="@layout/item_token_preview" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Import Status and Preview -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="📊 Import Status"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/material_dynamic_neutral20" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clearImportButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🗑️ Clear"
+                        android:textAllCaps="false"
+                        style="@style/Widget.Material3.Button.TextButton" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📈 "
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/itemCountText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 items"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/material_dynamic_primary40" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/importPreviewText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No data imported yet"
+                    android:textSize="13sp"
+                    android:textColor="@color/material_dynamic_neutral50"
+                    android:fontFamily="monospace"
+                    android:background="@color/material_dynamic_neutral95"
+                    android:padding="12dp"
+                    android:minHeight="100dp"
+                    android:gravity="top" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Import Guide -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📋 Import Guide"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/material_dynamic_neutral20"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📂 File Import:\n• Supports CSV, TXT, JSON formats\n• Auto-detects separators (comma, line, space)\n• Validates data types automatically\n\n📋 Clipboard Import:\n• Paste from spreadsheets or text editors\n• Smart format detection\n• Handles various data layouts\n\n🔄 Token Reuse:\n• Use tokens from previous tokenization results\n• Perfect for detokenization testing\n• Automatically filters by data type"
+                    android:textSize="13sp"
+                    android:textColor="@color/material_dynamic_neutral40"
+                    android:lineSpacingMultiplier="1.2" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+</ScrollView>

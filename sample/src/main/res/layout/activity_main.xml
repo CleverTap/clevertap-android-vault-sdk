@@ -1,151 +1,379 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:layout_marginTop="85dp"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="16dp">
 
+        <!-- App Title -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Vault SDK Demo"
-            android:textSize="24sp"
-            android:textStyle="bold"
+            android:layout_marginBottom="16dp"
             android:gravity="center"
-            android:layout_marginBottom="16dp" />
+            android:text="🔐 CT Vault SDK Demo"
+            android:textColor="@android:color/black"
+            android:textSize="24sp"
+            android:textStyle="bold" />
 
-        <!-- Status Chips -->
-        <com.google.android.material.chip.ChipGroup
+        <!-- SDK Status -->
+        <TextView
+            android:id="@+id/statusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="8dp"
+            android:gravity="center"
+            android:text="SDK Status: Initializing..."
+            android:textColor="@android:color/darker_gray"
+            android:textSize="14sp" />
+
+        <!-- Status Chips -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:gravity="center"
+            android:orientation="horizontal">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipEncryption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Encryption: ON"
-                style="@style/Widget.MaterialComponents.Chip.Action" />
+                android:layout_marginEnd="8dp"
+                android:text="🔒 Encryption: ON" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipCache"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Cache: ON"
-                style="@style/Widget.MaterialComponents.Chip.Action" />
+                android:text="💾 Cache: ON" />
 
-        </com.google.android.material.chip.ChipGroup>
+        </LinearLayout>
 
-        <!-- Input Section -->
-        <com.google.android.material.textfield.TextInputLayout
+        <!-- Data Type Selection -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Enter value or token"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="2dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/inputEditText"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text"
-                android:maxLines="1" />
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Select Data Type:"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
 
-        <!-- Single Operations -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Single Operations"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/dataTypeChipGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:singleSelection="true" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+                <!-- Operation Type Selection -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Select Operation Type:"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/tokenizeButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Tokenize"
-                android:layout_marginEnd="8dp" />
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/operationChipGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:singleSelection="true" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/detokenizeButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Detokenize"
-                android:layout_marginStart="8dp" />
+                <!-- Input Section -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:hint="Enter value or token">
 
-        </LinearLayout>
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/inputEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text" />
 
-        <!-- Batch Operations -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Batch Operations"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+                <!-- Single Operation Buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/batchTokenizeButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Batch Tokenize"
-                android:layout_marginEnd="8dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/tokenizeButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:text="Tokenize"
+                        app:icon="@android:drawable/ic_lock_idle_lock" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/batchDetokenizeButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Batch Detokenize"
-                android:layout_marginStart="8dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/detokenizeButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Detokenize"
+                        app:icon="@android:drawable/ic_lock_idle_alarm" />
 
-        </LinearLayout>
+                </LinearLayout>
 
-        <!-- Cache Management -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/clearCacheButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Clear Cache"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
+                <!-- File Import Section (for Batch Operations) -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp">
 
-        <!-- Results Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Results"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="400dp"
-            android:background="@android:color/white"
-            android:elevation="2dp" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="📁 File Import for Batch Operations"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
 
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:text="Import a .txt file with comma-separated values for batch tokenization"
+                            android:textColor="@android:color/darker_gray"
+                            android:textSize="12sp" />
+
+                        <!-- Import Status -->
+                        <TextView
+                            android:id="@+id/importStatusText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:text="No file imported"
+                            android:textColor="@android:color/darker_gray"
+                            android:textSize="14sp"
+                            android:visibility="gone" />
+
+                        <!-- Import Buttons -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/importFileButton"
+                                style="@style/Widget.MaterialComponents.Button"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="8dp"
+                                android:layout_weight="1"
+                                android:text="Import File"
+                                app:icon="@android:drawable/ic_menu_upload" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/clearImportButton"
+                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Clear"
+                                android:visibility="gone"
+                                app:icon="@android:drawable/ic_menu_close_clear_cancel" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Batch Operation Buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/batchTokenizeButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:text="Batch Tokenize"
+                        android:textAllCaps="false"
+                        android:visibility="gone" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/batchDetokenizeButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Batch Detokenize"
+                        android:textAllCaps="false"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+                <!-- Sample Data Buttons -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Quick Sample Data:"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/sampleStringButton"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="📝 String"
+                        android:textSize="10sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/sampleIntButton"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="🔢 Int"
+                        android:textSize="10sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/sampleLongButton"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="📊 Long"
+                        android:textSize="10sp" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/sampleFloatButton"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="💰 Float"
+                        android:textSize="10sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/sampleDoubleButton"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="🎯 Double"
+                        android:textSize="10sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/sampleBooleanButton"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="✅ Bool"
+                        android:textSize="10sp" />
+
+                </LinearLayout>
+
+                <!-- Utility Buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clearCacheButton"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:text="Clear Cache"
+                        android:textAllCaps="false"
+                        app:icon="@android:drawable/ic_menu_delete" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clearResultsButton"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Clear Results"
+                        android:textAllCaps="false"
+                        app:icon="@android:drawable/ic_menu_close_clear_cancel" />
+
+                </LinearLayout>
+
+                <!-- Results Section -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="📊 Operation Results:"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    tools:itemCount="3" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
-
 </ScrollView>

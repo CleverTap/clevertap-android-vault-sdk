@@ -27,22 +27,31 @@ class NetworkProvider(
     private val authUrl: String
 ) {
     companion object {
-        private const val CONNECT_TIMEOUT_SECONDS = 15L // TODO final value
-        private const val READ_TIMEOUT_SECONDS = 30L // TODO final value
-        private const val WRITE_TIMEOUT_SECONDS = 30L // TODO final value
+        private const val CONNECT_TIMEOUT_SECONDS = 15L
+        private const val READ_TIMEOUT_SECONDS = 15L
+        private const val WRITE_TIMEOUT_SECONDS = 15L
     }
 
     val logging : HttpLoggingInterceptor= HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
 
-    private val gson: Gson by lazy {
-        GsonBuilder()
-            .disableHtmlEscaping() // This prevents = and + from being escaped
-            .create()
+    /**
+     * Lazily initialized AuthApi instance (created only once)
+     */
+    internal val authApi: AuthApi by lazy {
+        authRetrofit.create(AuthApi::class.java)
     }
+
+    /**
+     * Lazily initialized TokenizationApi instance (created only once)
+     */
+    internal val tokenizationApi: TokenizationApi by lazy {
+        tokenizationRetrofit.create(TokenizationApi::class.java)
+    }
+
     /**
      * Lazily initialized OkHttpClient with configured timeouts
      */
-    private val okHttpClient: OkHttpClient by lazy {
+    internal val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -54,7 +63,7 @@ class NetworkProvider(
     /**
      * Lazily initialized Retrofit instance for tokenization operations
      */
-    private val tokenizationRetrofit: Retrofit by lazy {
+    internal val tokenizationRetrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(apiUrl)
             .client(okHttpClient)
@@ -65,30 +74,12 @@ class NetworkProvider(
     /**
      * Lazily initialized Retrofit instance for authentication operations
      */
-    private val authRetrofit: Retrofit by lazy {
+    internal val authRetrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(authUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-    }
-
-    /**
-     * Gets the API interface for authentication operations
-     *
-     * @return The AuthApi interface
-     */
-    fun getAuthApi(): AuthApi {
-        return authRetrofit.create(AuthApi::class.java)
-    }
-
-    /**
-     * Gets the API interface for tokenization operations
-     *
-     * @return The TokenizationApi interface
-     */
-    fun getTokenizationApi(): TokenizationApi {
-        return tokenizationRetrofit.create(TokenizationApi::class.java)
     }
 
 }

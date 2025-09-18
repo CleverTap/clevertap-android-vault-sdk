@@ -5,10 +5,10 @@ plugins {
 
 android {
     namespace = "com.clevertap.android.vault.sdk"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 21
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
@@ -40,6 +40,8 @@ dependencies {
     implementation ("com.squareup.okhttp3:logging-interceptor:4.11.0")
 
     testImplementation(libs.junit)
+    testImplementation(libs.test.mockk)
+    testImplementation(libs.test.coroutine)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

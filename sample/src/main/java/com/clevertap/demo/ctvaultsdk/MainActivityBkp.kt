@@ -1,10 +1,7 @@
 package com.clevertap.demo.ctvaultsdk
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -18,11 +15,9 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import com.clevertap.demo.ctvaultsdk.MainActivity.DataType
 
-class MainActivity : AppCompatActivity() {
+class MainActivityBkp : AppCompatActivity() {
 
     private lateinit var vaultSDK: VaultSDK
     private lateinit var inputEditText: TextInputEditText
@@ -45,10 +40,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sampleDoubleButton: MaterialButton
     private lateinit var sampleBooleanButton: MaterialButton
 
-    // File Import Buttons
-    private lateinit var importFileButton: MaterialButton
-    private lateinit var clearImportButton: MaterialButton
-
     // Utility Buttons
     private lateinit var clearCacheButton: MaterialButton
     private lateinit var clearResultsButton: MaterialButton
@@ -57,7 +48,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chipEncryption: Chip
     private lateinit var chipCache: Chip
     private lateinit var statusText: TextView
-    private lateinit var importStatusText: TextView
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: TokenResultAdapter
@@ -65,11 +55,7 @@ class MainActivity : AppCompatActivity() {
     private val tokenResults = mutableListOf<TokenDisplayItem>()
     private var selectedDataType = DataType.STRING
     private var selectedOperation = Operation.SINGLE
-
-    // Store imported data
-    private var importedData: List<Any> = emptyList()
-    private var importedFileName: String? = null
-
+/*
     enum class DataType(val displayName: String) {
         STRING("String"),
         INT("Int"),
@@ -77,22 +63,11 @@ class MainActivity : AppCompatActivity() {
         FLOAT("Float"),
         DOUBLE("Double"),
         BOOLEAN("Boolean")
-    }
+    }*/
 
     enum class Operation(val displayName: String) {
         SINGLE("Single"),
         BATCH("Batch")
-    }
-
-    // File picker launcher
-    private val filePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == RESULT_OK) {
-            result.data?.data?.let { uri ->
-                importDataFromFile(uri)
-            }
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,16 +100,12 @@ class MainActivity : AppCompatActivity() {
         sampleDoubleButton = findViewById(R.id.sampleDoubleButton)
         sampleBooleanButton = findViewById(R.id.sampleBooleanButton)
 
-        importFileButton = findViewById(R.id.importFileButton)
-        clearImportButton = findViewById(R.id.clearImportButton)
-
         clearCacheButton = findViewById(R.id.clearCacheButton)
         clearResultsButton = findViewById(R.id.clearResultsButton)
 
         chipEncryption = findViewById(R.id.chipEncryption)
         chipCache = findViewById(R.id.chipCache)
         statusText = findViewById(R.id.statusText)
-        importStatusText = findViewById(R.id.importStatusText)
 
         recyclerView = findViewById(R.id.recyclerView)
     }
@@ -185,8 +156,6 @@ class MainActivity : AppCompatActivity() {
                 selectedDataType = DataType.values().first { dt -> dt.displayName == checkedChip.text }
                 updateUIForCurrentSelection()
                 updateSampleDataHint()
-                // Clear imported data when data type changes
-                clearImportedData()
             }
         }
 
@@ -222,20 +191,11 @@ class MainActivity : AppCompatActivity() {
 
         // Batch operation buttons
         batchTokenizeButton.setOnClickListener {
-            if (importedData.isNotEmpty()) {
-                batchTokenizeImportedValues()
-            } else {
-                batchTokenizeValues()
-            }
+            batchTokenizeValues()
         }
 
         batchDetokenizeButton.setOnClickListener {
-            if (importedData.isNotEmpty()) {
-                // For detokenization, we need tokens, not values
-                batchDeTokenizeImportedValues()
-            } else {
-                batchDetokenizeTokens()
-            }
+            batchDetokenizeTokens()
         }
 
         // Sample data buttons
@@ -258,15 +218,6 @@ class MainActivity : AppCompatActivity() {
             inputEditText.setText(SampleDataProvider.getRandomSampleData(DataType.BOOLEAN).toString())
         }
 
-        // File import buttons
-        importFileButton.setOnClickListener {
-            openFilePicker()
-        }
-
-        clearImportButton.setOnClickListener {
-            clearImportedData()
-        }
-
         // Utility buttons
         clearCacheButton.setOnClickListener {
             clearCache()
@@ -276,301 +227,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ========================================
-    // FILE IMPORT FUNCTIONALITY
-    // ========================================
-
-    private fun openFilePicker() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/plain"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/plain", "text/csv", "*/*"))
-        }
-
-        try {
-            filePickerLauncher.launch(intent)
-        } catch (e: Exception) {
-            showToast("❌ Error opening file picker: ${e.message}")
-        }
-    }
-
-    private fun importDataFromFile(uri: Uri) {
-        try {
-            contentResolver.openInputStream(uri)?.use { inputStream ->
-                val reader = BufferedReader(InputStreamReader(inputStream))
-                val fileContent = reader.readText()
-
-                // Extract filename from URI
-                val fileName = getFileName(uri)
-
-                parseFileContent(fileContent, fileName)
-            }
-        } catch (e: Exception) {
-            showToast("❌ Error reading file: ${e.message}")
-            addResult(TokenDisplayItem.Error("File Import Error", "Failed to read file: ${e.message}"))
-        }
-    }
-
-    private fun getFileName(uri: Uri): String {
-        return contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-            cursor.moveToFirst()
-            cursor.getString(nameIndex)
-        } ?: "imported_file.txt"
-    }
-
-    private fun parseFileContent(content: String, fileName: String) {
-        try {
-            // Parse comma-separated values
-            val rawValues = content.split(Regex("[,\\n]"))
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-
-            if (rawValues.isEmpty()) {
-                showToast("❌ No valid data found in file")
-                return
-            }
-
-            // Convert and validate data according to selected type
-            val (validData, invalidCount) = validateAndConvertData(rawValues)
-
-            if (validData.isEmpty()) {
-                showToast("❌ No valid ${selectedDataType.displayName} values found in file")
-                addResult(TokenDisplayItem.Error(
-                    "File Import Error",
-                    "No valid ${selectedDataType.displayName} values found in file. Check data format."
-                ))
-                return
-            }
-
-            // Store imported data
-            importedData = validData
-            importedFileName = fileName
-
-            // Update UI
-            updateImportStatus(validData.size, invalidCount, fileName)
-
-            // Show import success
-            addResult(TokenDisplayItem.FileImported(
-                fileName = fileName,
-                totalValues = rawValues.size,
-                validValues = validData.size,
-                invalidValues = invalidCount,
-                dataType = selectedDataType,
-                sampleValues = validData.take(3).map { it.toString() }
-            ))
-
-            showToast("✅ Imported ${validData.size} valid ${selectedDataType.displayName} values from $fileName")
-
-        } catch (e: Exception) {
-            showToast("❌ Error parsing file: ${e.message}")
-            addResult(TokenDisplayItem.Error("File Parse Error", "Failed to parse file: ${e.message}"))
-        }
-    }
-
-    private fun validateAndConvertData(rawValues: List<String>): Pair<List<Any>, Int> {
-        val validData = mutableListOf<Any>()
-        var invalidCount = 0
-
-        for (rawValue in rawValues) {
-            try {
-                val convertedValue = when (selectedDataType) {
-                    DataType.STRING -> rawValue
-                    DataType.INT -> rawValue.toInt()
-                    DataType.LONG -> rawValue.toLong()
-                    DataType.FLOAT -> rawValue.toFloat()
-                    DataType.DOUBLE -> rawValue.toDouble()
-                    DataType.BOOLEAN -> when (rawValue.lowercase()) {
-                        "true", "1", "yes", "y" -> true
-                        "false", "0", "no", "n" -> false
-                        else -> throw IllegalArgumentException("Invalid boolean value: $rawValue")
-                    }
-                }
-                validData.add(convertedValue)
-            } catch (e: Exception) {
-                invalidCount++
-                // Log invalid values for debugging
-                android.util.Log.w("FileImport", "Invalid ${selectedDataType.displayName} value: '$rawValue' - ${e.message}")
-            }
-        }
-
-        return Pair(validData, invalidCount)
-    }
-
-    private fun updateImportStatus(validCount: Int, invalidCount: Int, fileName: String) {
-        val statusMessage = if (invalidCount > 0) {
-            "📁 $fileName: $validCount valid, $invalidCount invalid ${selectedDataType.displayName} values"
-        } else {
-            "📁 $fileName: $validCount valid ${selectedDataType.displayName} values"
-        }
-        importStatusText.text = statusMessage
-        importStatusText.visibility = android.view.View.VISIBLE
-        clearImportButton.visibility = android.view.View.VISIBLE
-    }
-
-    private fun clearImportedData() {
-        importedData = emptyList()
-        importedFileName = null
-        importStatusText.visibility = android.view.View.GONE
-        clearImportButton.visibility = android.view.View.GONE
-        showToast("Imported data cleared")
-    }
-
-    // ========================================
-    // BATCH OPERATIONS WITH IMPORTED DATA
-    // ========================================
-
-    private fun batchTokenizeImportedValues() {
-        if (importedData.isEmpty()) {
-            showToast("No imported data available")
-            return
-        }
-
-        showToast("Batch tokenizing ${importedData.size} imported ${selectedDataType.displayName} values")
-        addResult(TokenDisplayItem.Loading("Batch tokenizing ${importedData.size} imported ${selectedDataType.displayName} values from $importedFileName..."))
-
-        when (selectedDataType) {
-            DataType.STRING -> {
-                vaultSDK.batchTokenizeStringValues(importedData as List<String>) { result ->
-                    handleBatchTokenizeResult(result, isImported = true)
-                }
-            }
-            DataType.INT -> {
-                vaultSDK.batchTokenizeIntValues(importedData as List<Int>) { result ->
-                    handleBatchTokenizeResult(result, isImported = true)
-                }
-            }
-            DataType.LONG -> {
-                vaultSDK.batchTokenizeLongValues(importedData as List<Long>) { result ->
-                    handleBatchTokenizeResult(result, isImported = true)
-                }
-            }
-            DataType.FLOAT -> {
-                vaultSDK.batchTokenizeFloatValues(importedData as List<Float>) { result ->
-                    handleBatchTokenizeResult(result, isImported = true)
-                }
-            }
-            DataType.DOUBLE -> {
-                vaultSDK.batchTokenizeDoubleValues(importedData as List<Double>) { result ->
-                    handleBatchTokenizeResult(result, isImported = true)
-                }
-            }
-            DataType.BOOLEAN -> {
-                vaultSDK.batchTokenizeBooleanValues(importedData as List<Boolean>) { result ->
-                    handleBatchTokenizeResult(result, isImported = true)
-                }
-            }
-        }
-    }
-    private fun batchDeTokenizeImportedValues() {
-        if (importedData.isEmpty()) {
-            showToast("No imported data available")
-            return
-        }
-        val tokens = importedData.map { it.toString() }
-        showToast("Batch de-tokenizing ${importedData.size} imported ${selectedDataType.displayName} tokens")
-        addResult(TokenDisplayItem.Loading("Batch de-tokenizing ${importedData.size} imported ${selectedDataType.displayName} tokens from $importedFileName..."))
-
-        when (selectedDataType) {
-            DataType.STRING -> {
-                vaultSDK.batchDeTokenizeAsString(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.INT -> {
-                vaultSDK.batchDeTokenizeAsInt(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.LONG -> {
-                vaultSDK.batchDeTokenizeAsLong(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.FLOAT -> {
-                vaultSDK.batchDeTokenizeAsFloat(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.DOUBLE -> {
-                vaultSDK.batchDeTokenizeAsDouble(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.BOOLEAN -> {
-                vaultSDK.batchDeTokenizeAsBoolean(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-        }
-    }
-
-    private fun batchTokenizeValues() {
-        val sampleData = SampleDataProvider.getBatchSampleData(selectedDataType)
-
-        showToast("Batch tokenizing ${sampleData.size} sample ${selectedDataType.displayName} values")
-        addResult(TokenDisplayItem.Loading("Batch tokenizing ${sampleData.size} sample ${selectedDataType.displayName} values..."))
-
-        when (selectedDataType) {
-            DataType.STRING -> {
-                vaultSDK.batchTokenizeStringValues(sampleData as List<String>) { result ->
-                    handleBatchTokenizeResult(result, isImported = false)
-                }
-            }
-            DataType.INT -> {
-                vaultSDK.batchTokenizeIntValues(sampleData as List<Int>) { result ->
-                    handleBatchTokenizeResult(result, isImported = false)
-                }
-            }
-            DataType.LONG -> {
-                vaultSDK.batchTokenizeLongValues(sampleData as List<Long>) { result ->
-                    handleBatchTokenizeResult(result, isImported = false)
-                }
-            }
-            DataType.FLOAT -> {
-                vaultSDK.batchTokenizeFloatValues(sampleData as List<Float>) { result ->
-                    handleBatchTokenizeResult(result, isImported = false)
-                }
-            }
-            DataType.DOUBLE -> {
-                vaultSDK.batchTokenizeDoubleValues(sampleData as List<Double>) { result ->
-                    handleBatchTokenizeResult(result, isImported = false)
-                }
-            }
-            DataType.BOOLEAN -> {
-                vaultSDK.batchTokenizeBooleanValues(sampleData as List<Boolean>) { result ->
-                    handleBatchTokenizeResult(result, isImported = false)
-                }
-            }
-        }
-    }
-
-    private fun showImportTokensDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Import Tokens for Detokenization")
-            .setMessage("To perform batch detokenization with imported data, you need to import a file containing tokens (not values).\n\nWould you like to:\n• Import a new file with tokens, or\n• Use existing tokens from previous operations?")
-            .setPositiveButton("Import Tokens") { _, _ ->
-                // Clear current imported data and let user import tokens
-                clearImportedData()
-                showToast("Please select a file containing comma-separated tokens")
-                openFilePicker()
-            }
-            .setNegativeButton("Use Existing") { _, _ ->
-                batchDetokenizeTokens()
-            }
-            .setNeutralButton("Cancel", null)
-            .show()
-    }
-
-    // ========================================
-    // EXISTING METHODS (Updated)
-    // ========================================
-
     private fun tokenizeSingleValue(input: String) {
         val parsedValue = parseInputValue(input) ?: return
 
         showToast("Tokenizing ${selectedDataType.displayName}: $input")
         addResult(TokenDisplayItem.Loading("Tokenizing $input as ${selectedDataType.displayName}..."))
+
         when (selectedDataType) {
             DataType.STRING -> {
                 vaultSDK.tokenize(parsedValue as String) { result ->
@@ -643,28 +305,63 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun batchTokenizeValues() {
+        val sampleData = SampleDataProvider.getBatchSampleData(selectedDataType)
+
+        showToast("Batch tokenizing ${sampleData.size} ${selectedDataType.displayName} values")
+        addResult(TokenDisplayItem.Loading("Batch tokenizing ${sampleData.size} ${selectedDataType.displayName} values..."))
+
+        when (selectedDataType) {
+            DataType.STRING -> {
+                vaultSDK.batchTokenizeStringValues(sampleData as List<String>) { result ->
+                    handleBatchTokenizeResult(result)
+                }
+            }
+            DataType.INT -> {
+                vaultSDK.batchTokenizeIntValues(sampleData as List<Int>) { result ->
+                    handleBatchTokenizeResult(result)
+                }
+            }
+            DataType.LONG -> {
+                vaultSDK.batchTokenizeLongValues(sampleData as List<Long>) { result ->
+                    handleBatchTokenizeResult(result)
+                }
+            }
+            DataType.FLOAT -> {
+                vaultSDK.batchTokenizeFloatValues(sampleData as List<Float>) { result ->
+                    handleBatchTokenizeResult(result)
+                }
+            }
+            DataType.DOUBLE -> {
+                vaultSDK.batchTokenizeDoubleValues(sampleData as List<Double>) { result ->
+                    handleBatchTokenizeResult(result)
+                }
+            }
+            DataType.BOOLEAN -> {
+                vaultSDK.batchTokenizeBooleanValues(sampleData as List<Boolean>) { result ->
+                    handleBatchTokenizeResult(result)
+                }
+            }
+        }
+    }
+
     private fun batchDetokenizeTokens() {
-        val availableTokens = tokenResults.flatMap { item ->
+        // Collect tokens from previous results based on selected data type
+        val availableTokens = tokenResults.mapNotNull { item ->
             when (item) {
                 is TokenDisplayItem.SingleTokenize -> {
-                if (isDataTypeCompatible(item.dataType, selectedDataType)) {
-                    listOf(item.token)
-                } else {
-                    emptyList()
+                    if (item.dataType.equals(getDataTypeName(selectedDataType), ignoreCase = true)) {
+                        item.token
+                    } else null
                 }
-            }
-
                 is TokenDisplayItem.BatchTokenize -> {
-                item.results
-                    .filter { result ->
-                        isDataTypeCompatible(result.dataType, selectedDataType)
+                    item.results.firstOrNull { result ->
+                        result.dataType?.equals(getDataTypeName(selectedDataType), ignoreCase = true) == true
+                    }?.token
                 }
-                    .map { result -> result.token }
+                else -> null
             }
-
-            else -> emptyList()
-        }
-    }.distinct()
+        }.take(5) // Limit to 5 tokens for demo
 
         if (availableTokens.isEmpty()) {
             showToast("No ${selectedDataType.displayName} tokens available. Please tokenize some ${selectedDataType.displayName} values first.")
@@ -708,40 +405,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Proper mapping between server data types and client data types
-     */
-    private fun isDataTypeCompatible(serverDataType: String?, clientDataType: DataType): Boolean {
-        if (serverDataType == null) return false
-
-        val serverTypeLower = serverDataType.lowercase()
-
-        return when (clientDataType) {
-            DataType.STRING -> {
-                serverTypeLower in listOf("string", "text")
-            }
-            DataType.INT -> {
-                serverTypeLower in listOf("number", "integer", "int")
-            }
-            DataType.LONG -> {
-                serverTypeLower in listOf("number", "long", "bigint")
-            }
-            DataType.FLOAT -> {
-                serverTypeLower in listOf("number", "float", "decimal")
-            }
-            DataType.DOUBLE -> {
-                serverTypeLower in listOf("number", "double", "decimal")
-            }
-            DataType.BOOLEAN -> {
-                serverTypeLower in listOf("boolean", "bool", "string")
-            }
-        }
-    }
-
-    // ========================================
-    // RESULT HANDLERS (Updated)
-    // ========================================
-
+    // Result handlers
     private fun handleTokenizeResult(originalValue: String, result: TokenizeResult) {
         removeLastLoadingItem()
         when (result) {
@@ -787,21 +451,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleBatchTokenizeResult(result: BatchTokenizeResult, isImported: Boolean = false) {
+    private fun handleBatchTokenizeResult(result: BatchTokenizeResult) {
         removeLastLoadingItem()
         when (result) {
             is BatchTokenizeResult.Success -> {
                 val item = TokenDisplayItem.BatchTokenize(
                     results = result.results,
                     summary = result.summary,
-                    inputDataType = selectedDataType,
-                    isImported = isImported,
-                    fileName = if (isImported) importedFileName else null
+                    inputDataType = selectedDataType
                 )
                 addResult(item)
-
-                val sourceText = if (isImported) "imported" else "sample"
-                showToast("✅ Batch tokenized: ${result.summary.processedCount} $sourceText ${selectedDataType.displayName} items")
+                showToast("✅ Batch tokenized: ${result.summary.processedCount} ${selectedDataType.displayName} items")
             }
             is BatchTokenizeResult.Error -> {
                 val item = TokenDisplayItem.Error("${selectedDataType.displayName} Batch Tokenize Error", result.message)
@@ -855,10 +515,7 @@ class MainActivity : AppCompatActivity() {
         showToast("Results cleared")
     }
 
-    // ========================================
-    // HELPER METHODS
-    // ========================================
-
+    // Helper methods
     private fun parseInputValue(input: String): Any? {
         return try {
             when (selectedDataType) {
@@ -894,29 +551,12 @@ class MainActivity : AppCompatActivity() {
                 detokenizeButton.visibility = android.view.View.VISIBLE
                 batchTokenizeButton.visibility = android.view.View.GONE
                 batchDetokenizeButton.visibility = android.view.View.GONE
-
-                // Hide file import options for single operations
-                importFileButton.visibility = android.view.View.GONE
-                if (importedData.isEmpty()) {
-                    clearImportButton.visibility = android.view.View.GONE
-                    importStatusText.visibility = android.view.View.GONE
-                }
             }
             Operation.BATCH -> {
                 tokenizeButton.visibility = android.view.View.GONE
                 detokenizeButton.visibility = android.view.View.GONE
                 batchTokenizeButton.visibility = android.view.View.VISIBLE
                 batchDetokenizeButton.visibility = android.view.View.VISIBLE
-
-                // Show file import options for batch operations
-                importFileButton.visibility = android.view.View.VISIBLE
-
-                // Update batch button text based on imported data
-                if (importedData.isNotEmpty()) {
-                    //batchTokenizeButton.text = "Tokenize Imported Data (${importedData.size})"
-                } else {
-                    //batchTokenizeButton.text = "Batch Tokenize Sample Data"
-                }
             }
         }
 
@@ -925,7 +565,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateSampleDataHint() {
         val hint = when (selectedDataType) {
-            DataType.STRING -> "Enter string value/Token (e.g., john@example.com)"
+            DataType.STRING -> "Enter string value/Token "
             DataType.INT -> "Enter integer value (e.g., 123456)"
             DataType.LONG -> "Enter long value (e.g., 9876543210)"
             DataType.FLOAT -> "Enter float value (e.g., 123.45)"
@@ -950,7 +590,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatusChips() {
-        chipEncryption.text = "🔒 Encryption: ON"
+        chipEncryption.text = "🔐 Encryption: ON"
         chipCache.text = "💾 Cache: ON"
     }
 
@@ -961,8 +601,6 @@ class MainActivity : AppCompatActivity() {
         batchDetokenizeButton.isEnabled = false
         clearCacheButton.isEnabled = false
         clearResultsButton.isEnabled = false
-        importFileButton.isEnabled = false
-        clearImportButton.isEnabled = false
     }
 
     private fun showToast(message: String) {
