@@ -12,14 +12,10 @@ class VaultSampleApplication : Application() {
         // Initialize the Vault SDK
         try {
             VaultSDK.initialize(
-                clientId = "navin-client",
-                clientSecret = "83EpGODDbeyepKaGRy1Srg4c4YVEFQG8",
-//                clientId = "",
-//                clientSecret = "",
-//                clientId = null,
-//                clientSecret =null,
-                apiUrl = "https://vault.clevertap-kishlaya.net/ct-vault/",
-                authUrl = "https://auth-test.clevertap.net/auth/realms/master/",
+                clientId = "",
+                clientSecret = "",
+                apiUrl = "",
+                authUrl = "",
                 logLevel = VaultLogger.LogLevel.VERBOSE
 
             )
