@@ -2,10 +2,7 @@ package com.clevertap.android.vault.sdk.network
 
 import com.clevertap.android.vault.sdk.api.AuthApi
 import com.clevertap.android.vault.sdk.api.TokenizationApi
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -32,8 +29,6 @@ class NetworkProvider(
         private const val WRITE_TIMEOUT_SECONDS = 15L
     }
 
-    val logging : HttpLoggingInterceptor= HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
-
     /**
      * Lazily initialized AuthApi instance (created only once)
      */
@@ -56,7 +51,6 @@ class NetworkProvider(
             .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .addInterceptor(logging)
             .build()
     }
 
