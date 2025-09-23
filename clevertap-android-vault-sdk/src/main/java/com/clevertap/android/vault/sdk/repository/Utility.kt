@@ -79,15 +79,15 @@ class RetryHandler(
 
     private suspend fun retryWithDelay(attempt: Int, exception: Exception? = null): Int {
         val newAttempt = attempt + 1
-        val delay = initialDelayMs * (1 shl newAttempt) // Exponential backoff
+        val delayToApply = initialDelayMs * (1 shl newAttempt) // Exponential backoff
 
         if (exception != null) {
-            logger.d("Waiting ${delay}ms before retry attempt $newAttempt due to exception")
+            logger.d("Waiting ${delayToApply}ms before retry attempt $newAttempt due to exception")
         } else {
-            logger.d("Waiting ${delay}ms before retry attempt $newAttempt")
+            logger.d("Waiting ${delayToApply}ms before retry attempt $newAttempt")
         }
 
-        delay(delay)
+        delay(delayToApply)
         return newAttempt
     }
 }
