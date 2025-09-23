@@ -1,3 +1,5 @@
+package com.clevertap.android.vault.sdk.util
+
 /**
  * Interface for converting between generic types and strings
  */

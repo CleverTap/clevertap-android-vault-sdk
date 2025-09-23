@@ -11,6 +11,7 @@ import com.clevertap.android.vault.sdk.repository.AuthRepository
 import com.clevertap.android.vault.sdk.repository.AuthRepositoryImpl
 import com.clevertap.android.vault.sdk.repository.TokenRepositoryImpl
 import com.clevertap.android.vault.sdk.repository.TokenRepository
+import com.clevertap.android.vault.sdk.util.TypeConverterRegistry
 import com.clevertap.android.vault.sdk.util.VaultLogger
 import com.clevertap.android.vault.sdk.util.toPublicResult
 import kotlinx.coroutines.CoroutineScope

@@ -1,6 +1,5 @@
 package com.clevertap.android.vault.sdk.util
 
-import TypeConverter
 import com.clevertap.android.vault.sdk.model.BatchDetokenItem
 import com.clevertap.android.vault.sdk.model.BatchDetokenizeRepoResult
 import com.clevertap.android.vault.sdk.model.BatchDetokenizeResult
