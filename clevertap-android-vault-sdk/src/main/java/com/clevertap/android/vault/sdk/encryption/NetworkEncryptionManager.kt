@@ -8,16 +8,15 @@ class NetworkEncryptionManager(
     private val keyGenerator: CTKeyGenerator,
     private val aesgcm: AESGCMCrypt
 ) {
-
-    companion object {
-        private var sessionKey: SecretKey? = null
+    private val sessionKey: SecretKey by lazy {
+        keyGenerator.generateSecretKey()
     }
 
     /**
      * Returns session key for encryption
      */
     private fun sessionKeyForEncryption(): SecretKey {
-        return sessionKey ?: keyGenerator.generateSecretKey().also { sessionKey = it }
+        return sessionKey
     }
 
     private fun sessionKeyBytes(): ByteArray {
