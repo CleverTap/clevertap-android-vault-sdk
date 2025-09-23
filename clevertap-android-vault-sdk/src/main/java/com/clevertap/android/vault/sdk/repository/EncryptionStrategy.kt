@@ -289,10 +289,6 @@ class WithEncryptionStrategy(
             null
         }
     }
-
-    private fun createErrorResponse(message: String): Response<Nothing> {
-        return Response.error(500, okhttp3.ResponseBody.create(null, message))
-    }
 }
 
 /**
