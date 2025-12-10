@@ -1,3 +1,6 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -113,6 +116,11 @@ dependencies {
     testImplementation(libs.test.coroutine)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+val localProperties: Properties = gradleLocalProperties(rootDir, providers)
+localProperties.forEach { name, value ->
+    ext[name.toString()] = value
 }
 
 mavenPublishing {
