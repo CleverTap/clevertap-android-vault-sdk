@@ -1,14 +1,5 @@
 package com.clevertap.android.vault.sdk.util
 
-
-import BooleanConverter
-import DoubleConverter
-import FloatConverter
-import IntConverter
-import LongConverter
-import StringConverter
-import TypeConverter
-import TypeConverterRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull

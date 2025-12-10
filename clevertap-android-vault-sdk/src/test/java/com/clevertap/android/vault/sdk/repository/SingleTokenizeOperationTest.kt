@@ -11,7 +11,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
-import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.ResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -311,7 +311,7 @@ class SingleTokenizeOperationResponseProcessingTest {
     @Test
     fun shouldHandleHttpErrorResponse() {
         // Arrange
-        val errorBody = "Server Error".toResponseBody()
+        val errorBody = ResponseBody.create(null,"Server Error")
         val response = Response.error<TokenizeResponse>(500, errorBody)
         val cacheResult = CacheCheckResult.NothingFromCache<String, TokenizeRepoResult>(
             originalRequest = "test-value",

@@ -14,8 +14,7 @@ import com.clevertap.android.vault.sdk.model.TokenizeRepoResult
 import com.clevertap.android.vault.sdk.model.TokenizeResponse
 import com.clevertap.android.vault.sdk.util.VaultLogger
 import io.mockk.mockk
-import io.mockk.verify
-import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.ResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -121,7 +120,7 @@ class ResponseProcessorTokenizeErrorTest(
     @Test
     fun shouldProcessErrorTokenizeResponse() {
         // Arrange
-        val response = Response.error<TokenizeResponse>(httpStatus, errorBody.toResponseBody())
+        val response = Response.error<TokenizeResponse>(httpStatus, ResponseBody.create(null,errorBody))
 
         // Act
         val result = responseProcessor.processTokenizeResponse(response)
@@ -250,7 +249,7 @@ class ResponseProcessorDetokenizeErrorTest(
     @Test
     fun shouldProcessErrorDetokenizeResponse() {
         // Arrange
-        val response = Response.error<DetokenizeResponse>(httpStatus, errorBody.toResponseBody())
+        val response = Response.error<DetokenizeResponse>(httpStatus, ResponseBody.create(null,errorBody))
 
         // Act
         val result = responseProcessor.processDetokenizeResponse(response)
@@ -490,7 +489,7 @@ class ResponseProcessorBatchTokenizeErrorTest(
     @Test
     fun shouldProcessErrorBatchTokenizeResponse() {
         // Arrange
-        val response = Response.error<BatchTokenizeResponse>(httpStatus, errorBody.toResponseBody())
+        val response = Response.error<BatchTokenizeResponse>(httpStatus,ResponseBody.create(null,errorBody))
 
         // Act
         val result = responseProcessor.processBatchTokenizeResponse(response, cachedResults)
@@ -750,7 +749,7 @@ class ResponseProcessorBatchDetokenizeErrorTest(
     fun shouldProcessErrorBatchDetokenizeResponse() {
         // Arrange
         val response =
-            Response.error<BatchDetokenizeResponse>(httpStatus, errorBody.toResponseBody())
+            Response.error<BatchDetokenizeResponse>(httpStatus, ResponseBody.create(null,errorBody))
 
         // Act
         val result = responseProcessor.processBatchDetokenizeResponse(response, cachedResults)

@@ -1,12 +1,5 @@
 package com.clevertap.android.vault.sdk.util
 
-import BooleanConverter
-import DoubleConverter
-import FloatConverter
-import IntConverter
-import LongConverter
-import StringConverter
-import TypeConverter
 import com.clevertap.android.vault.sdk.model.BatchDetokenItemResponse
 import com.clevertap.android.vault.sdk.model.BatchDetokenizeRepoResult
 import com.clevertap.android.vault.sdk.model.BatchDetokenizeResult

@@ -1,7 +1,12 @@
 [versions]
 #Plugins
-agp = "8.7.3"
-kotlin = "1.9.24"
+agp = "8.9.3"
+kotlin = "2.0.10"
+mavenPublish = "0.32.0"
+
+# Android SDK Versions
+compileSdk = "36"
+minSdk = "21"
 
 #Sample app
 coreKtx = "1.16.0"
@@ -15,11 +20,12 @@ constraintlayout = "2.2.1"
 recyclerview = "1.4.0"
 cardview = "1.0.0"
 
-# SDK
+# SDK deps
 retrofit = "2.11.0"
 gson = "2.13.1"
 coroutines = "1.8.1"
 mockk = "1.14.2"
+clevertap-vault-sdk = "1.0.0"
 
 [libraries]
 
@@ -50,4 +56,5 @@ test_coroutine = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ver
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
 

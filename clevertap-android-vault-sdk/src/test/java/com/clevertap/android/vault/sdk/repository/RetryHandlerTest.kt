@@ -11,7 +11,7 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
-import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.ResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -91,7 +91,7 @@ class RetryHandler401Test {
     @Test
     fun shouldRefreshTokenAndRetryOn401() = runTest {
         // Arrange
-        val unauthorizedResponse = Response.error<String>(401, "Unauthorized".toResponseBody())
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val successResponse = Response.success("Success after token refresh")
         val apiCall: suspend () -> Response<String> = mockk()
 
@@ -110,7 +110,7 @@ class RetryHandler401Test {
     @Test
     fun shouldFailAfterMaxRetriesOn401() = runTest {
         // Arrange
-        val unauthorizedResponse = Response.error<String>(401, "Unauthorized".toResponseBody())
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val apiCall: suspend () -> Response<String> = mockk()
 
         coEvery { apiCall() } returns unauthorizedResponse
@@ -132,7 +132,7 @@ class RetryHandler401Test {
     @Test
     fun shouldHandleTokenRefreshFailure() = runTest {
         // Arrange
-        val unauthorizedResponse = Response.error<String>(401, "Unauthorized".toResponseBody())
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val apiCall: suspend () -> Response<String> = mockk()
 
         coEvery { apiCall() } returns unauthorizedResponse
@@ -225,8 +225,8 @@ class RetryHandlerComplexScenarioTest {
     @Test
     fun shouldHandle401FollowedByServerError() = runTest {
         // Arrange
-        val unauthorizedResponse = Response.error<String>(401, "Unauthorized".toResponseBody())
-        val serverErrorResponse = Response.error<String>(500, "Server Error".toResponseBody())
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
+        val serverErrorResponse = Response.error<String>(500, ResponseBody.create(null,"Server Error"))
         val successResponse = Response.success("Final success")
         val apiCall: suspend () -> Response<String> = mockk()
 
@@ -250,7 +250,7 @@ class RetryHandlerComplexScenarioTest {
     fun shouldHandleNetworkErrorFollowedBy401() = runTest {
         // Arrange
         val networkException = IOException("Connection failed")
-        val unauthorizedResponse = Response.error<String>(401, "Unauthorized".toResponseBody())
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val successResponse = Response.success("Final success")
         val apiCall: suspend () -> Response<String> = mockk()
 
@@ -287,7 +287,7 @@ class RetryHandlerEdgeCaseTest {
     fun shouldHandleZeroMaxRetries() = runTest {
         // Arrange
         val retryHandler = RetryHandler(mockAuthRepository, mockLogger, maxRetries = 0)
-        val errorResponse = Response.error<String>(500, "Server Error".toResponseBody())
+        val errorResponse = Response.error<String>(500, ResponseBody.create(null,"Server Error"))
         val apiCall: suspend () -> Response<String> = mockk()
 
         coEvery { apiCall() } returns errorResponse
@@ -370,7 +370,7 @@ class RetryHandlerServerErrorDelayTest(
     @Test
     fun shouldCalculateExponentialBackoffDelaysCorrectly() = runTest {
         // Arrange
-        val errorResponse = Response.error<String>(errorCode, "Server Error".toResponseBody())
+        val errorResponse = Response.error<String>(errorCode, ResponseBody.create(null,"Server Error"))
         val apiCall: suspend () -> Response<String> = mockk()
         coEvery { apiCall() } returns errorResponse
 
@@ -489,7 +489,7 @@ class RetryHandler401NoDelayTest {
     @Test
     fun shouldNotDelayOn401Errors() = runTest {
         // Arrange
-        val unauthorizedResponse = Response.error<String>(401, "Unauthorized".toResponseBody())
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val successResponse = Response.success("Success after token refresh")
         val apiCall: suspend () -> Response<String> = mockk()
 
@@ -512,7 +512,7 @@ class RetryHandler401NoDelayTest {
     @Test
     fun shouldNotDelayOn401EvenWithMultipleRetries() = runTest {
         // Arrange
-        val unauthorizedResponse = Response.error<String>(401, "Unauthorized".toResponseBody())
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val apiCall: suspend () -> Response<String> = mockk()
 
         coEvery { apiCall() } returns unauthorizedResponse

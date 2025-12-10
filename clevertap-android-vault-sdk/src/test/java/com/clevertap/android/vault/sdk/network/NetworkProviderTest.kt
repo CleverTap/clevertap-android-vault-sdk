@@ -97,9 +97,9 @@ class NetworkProviderConfigurationTest {
         val client = networkProvider.okHttpClient
 
         // Assert - Check timeout configuration
-        assertEquals("Connect timeout should be 15 seconds", 15000, client.connectTimeoutMillis)
-        assertEquals("Read timeout should be 15 seconds", 15000, client.readTimeoutMillis)
-        assertEquals("Write timeout should be 15 seconds", 15000, client.writeTimeoutMillis)
+        assertEquals("Connect timeout should be 15 seconds", 15000, client.connectTimeoutMillis())
+        assertEquals("Read timeout should be 15 seconds", 15000, client.readTimeoutMillis())
+        assertEquals("Write timeout should be 15 seconds", 15000, client.writeTimeoutMillis())
     }
 
     @Test
@@ -259,9 +259,9 @@ class NetworkProviderIntegrationTest {
         )
         assertSame("Client should be the same instance", okHttpClient, tokenRetrofit.callFactory())
         assertSame("Auth Retrofit should use configured client", okHttpClient, authRetrofit.callFactory())
-        assertEquals("Client connect timeout", 15000, okHttpClient.connectTimeoutMillis)
-        assertEquals("Client read timeout", 15000, okHttpClient.readTimeoutMillis)
-        assertEquals("Client write timeout", 15000, okHttpClient.writeTimeoutMillis)
+        assertEquals("Client connect timeout", 15000, okHttpClient.connectTimeoutMillis())
+        assertEquals("Client read timeout", 15000, okHttpClient.readTimeoutMillis())
+        assertEquals("Client write timeout", 15000, okHttpClient.writeTimeoutMillis())
     }
 
 }
