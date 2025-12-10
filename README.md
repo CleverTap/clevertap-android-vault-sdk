@@ -16,7 +16,7 @@ CleverTap Vault SDK provides a secure way to tokenize Personally Identifiable In
 
 ### System Requirements
 - **Minimum Android SDK**: 21
-- **Compile Android SDK**: 35
+- **Compile Android SDK**: 36
 - **Java Version**: 8 or higher
 
 ### Dependencies
