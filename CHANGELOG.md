@@ -1,5 +1,5 @@
 ## CleverTap Vault SDK CHANGE LOG
-### Version 1.1.0 (December 10, 2025)
+### Version 1.0.0 (December 10, 2025)
 
 #### 🎉 Initial Release
 
