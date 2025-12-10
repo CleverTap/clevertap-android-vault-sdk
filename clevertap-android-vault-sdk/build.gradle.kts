@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.maven.publish)
 }
 
-val libraryVersion = "1.0.0"
+val libraryVersion = libs.versions.clevertap.vault.sdk.get()
 val artifact = "clevertap-vault-sdk"
 val libraryDescription = "The CleverTap Vault SDK for Android - Secure tokenization of PII data"
 val publishedGroupId = "com.clevertap.android"
