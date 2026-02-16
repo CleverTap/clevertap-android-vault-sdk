@@ -1,6 +1,5 @@
 package com.clevertap.android.zeropii.sdk.network
 
-import com.clevertap.android.zeropii.sdk.api.AuthApi
 import com.clevertap.android.zeropii.sdk.api.TokenizationApi
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -11,29 +10,20 @@ import java.util.concurrent.TimeUnit
  * Provides network-related services for the ZeroPii SDK.
  *
  * This class is responsible for creating and configuring Retrofit instances
- * for both tokenization and authentication operations. It encapsulates the
- * network configuration details such as timeouts and base URLs.
+ * for tokenization operations. It encapsulates the network configuration
+ * details such as timeouts and base URLs.
  *
  * @property apiUrl The base URL for tokenization API endpoints
- * @property authUrl The base URL for authentication API endpoints
  *
- * @constructor Creates a NetworkProvider with specified API and auth URLs
+ * @constructor Creates a NetworkProvider with specified API URL
  */
 class NetworkProvider(
-    private val apiUrl: String,
-    private val authUrl: String
+    private val apiUrl: String
 ) {
     companion object {
         private const val CONNECT_TIMEOUT_SECONDS = 15L
         private const val READ_TIMEOUT_SECONDS = 15L
         private const val WRITE_TIMEOUT_SECONDS = 15L
-    }
-
-    /**
-     * Lazily initialized AuthApi instance (created only once)
-     */
-    internal val authApi: AuthApi by lazy {
-        authRetrofit.create(AuthApi::class.java)
     }
 
     /**
@@ -64,16 +54,4 @@ class NetworkProvider(
             .addConverterFactory(GsonConverterFactory.create(/*gson*/))
             .build()
     }
-
-    /**
-     * Lazily initialized Retrofit instance for authentication operations
-     */
-    internal val authRetrofit: Retrofit by lazy {
-        Retrofit.Builder()
-            .baseUrl(authUrl)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
-
 }
