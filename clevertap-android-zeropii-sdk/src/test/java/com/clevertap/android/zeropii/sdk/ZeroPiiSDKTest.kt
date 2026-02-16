@@ -1,5 +1,8 @@
 package com.clevertap.android.zeropii.sdk
 
+import com.clevertap.android.zeropii.sdk.auth.AccessTokenCallback
+import com.clevertap.android.zeropii.sdk.auth.AccessTokenInfo
+import com.clevertap.android.zeropii.sdk.auth.AccessTokenProvider
 import com.clevertap.android.zeropii.sdk.model.BatchDetokenItemResponse
 import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeResult
@@ -38,6 +41,12 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import java.lang.reflect.Field
 
+private val stubTokenProvider = object : AccessTokenProvider {
+    override fun fetchToken(callback: AccessTokenCallback) {
+        callback.onSuccess(AccessTokenInfo("test-token", 3600))
+    }
+}
+
 // ====================================
 // Initialization and Singleton Tests
 // ====================================
@@ -63,10 +72,8 @@ class ZeroPiiSDKInitializationTest {
     fun shouldInitializeSingletonCorrectly() {
         // Act
         val sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client-id",
-            clientSecret = "test-client-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
 
         // Assert
@@ -77,10 +84,8 @@ class ZeroPiiSDKInitializationTest {
     fun shouldReturnSameSingletonInstance() {
         // Act
         val sdk1 = ZeroPiiSDK.initialize(
-            clientId = "test-client-id",
-            clientSecret = "test-client-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
 
         val sdk2 = ZeroPiiSDK.getInstance()
@@ -107,17 +112,13 @@ class ZeroPiiSDKInitializationTest {
     fun shouldHandleDoubleInitialization() {
         // Act
         val sdk1 = ZeroPiiSDK.initialize(
-            clientId = "client1",
-            clientSecret = "secret1",
-            apiUrl = "https://api1.test.com/",
-            authUrl = "https://auth1.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api1.test.com/"
         )
 
         val sdk2 = ZeroPiiSDK.initialize(
-            clientId = "client2",
-            clientSecret = "secret2",
-            apiUrl = "https://api2.test.com/",
-            authUrl = "https://auth2.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api2.test.com/"
         )
 
         // Assert - Should return same instance (first initialization wins)
@@ -172,10 +173,8 @@ class ZeroPiiSDKSingleTokenizeTest(
 
         // Create SDK
         sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client",
-            clientSecret = "test-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
         mockTokenRepository = mockk<TokenRepositoryImpl>(relaxed = true)
         sdk.tokenRepository = mockTokenRepository
@@ -317,10 +316,8 @@ class ZeroPiiSDKSingleDetokenizeTest(
         resetZeroPiiSDKInstance()
 
         sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client",
-            clientSecret = "test-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
         mockTokenRepository = mockk<TokenRepositoryImpl>(relaxed = true)
         sdk.tokenRepository = mockTokenRepository
@@ -569,10 +566,8 @@ class ZeroPiiSDKBatchTokenizeTest(
         resetZeroPiiSDKInstance()
 
         sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client",
-            clientSecret = "test-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
 
         mockTokenRepository = mockk<TokenRepositoryImpl>(relaxed = true)
@@ -811,10 +806,8 @@ class ZeroPiiSDKBatchDetokenizeTest(
         resetZeroPiiSDKInstance()
 
         sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client",
-            clientSecret = "test-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
 
         mockTokenRepository = mockk<TokenRepositoryImpl>(relaxed = true)
@@ -1399,10 +1392,8 @@ class ZeroPiiSDKErrorHandlingTest {
         resetZeroPiiSDKInstance()
 
         sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client",
-            clientSecret = "test-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
 
         mockTokenRepository = mockk<TokenRepositoryImpl>(relaxed = true)
@@ -1551,10 +1542,8 @@ class ZeroPiiSDKTypeConversionErrorTest(
         resetZeroPiiSDKInstance()
 
         sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client",
-            clientSecret = "test-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
 
         mockTokenRepository = mockk<TokenRepositoryImpl>(relaxed = true)
@@ -1775,10 +1764,8 @@ class ZeroPiiSDKBatchErrorHandlingTest(
         resetZeroPiiSDKInstance()
 
         sdk = ZeroPiiSDK.initialize(
-            clientId = "test-client",
-            clientSecret = "test-secret",
-            apiUrl = "https://api.test.com/",
-            authUrl = "https://auth.test.com/"
+            tokenProvider = stubTokenProvider,
+            apiUrl = "https://api.test.com/"
         )
 
         mockTokenRepository = mockk<TokenRepositoryImpl>(relaxed = true)

@@ -1,5 +1,6 @@
 package com.clevertap.android.zeropii.sdk
 
+import com.clevertap.android.zeropii.sdk.auth.AccessTokenProvider
 import com.clevertap.android.zeropii.sdk.cache.TokenCache
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
 import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeResult
@@ -7,8 +8,8 @@ import com.clevertap.android.zeropii.sdk.model.BatchTokenizeResult
 import com.clevertap.android.zeropii.sdk.model.DetokenizeResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeResult
 import com.clevertap.android.zeropii.sdk.network.NetworkProvider
+import com.clevertap.android.zeropii.sdk.repository.AccessTokenProviderAuthRepository
 import com.clevertap.android.zeropii.sdk.repository.AuthRepository
-import com.clevertap.android.zeropii.sdk.repository.AuthRepositoryImpl
 import com.clevertap.android.zeropii.sdk.repository.TokenRepositoryImpl
 import com.clevertap.android.zeropii.sdk.repository.TokenRepository
 import com.clevertap.android.zeropii.sdk.util.TypeConverterRegistry
@@ -25,10 +26,8 @@ import kotlinx.coroutines.withContext
  * for sensitive data like PII (Personally Identifiable Information).
  */
 class ZeroPiiSDK private constructor(
-    private val clientId: String,
-    private val clientSecret: String,
+    private val tokenProvider: AccessTokenProvider,
     private val apiUrl: String,
-    private val authUrl: String,
     private val enableEncryption: Boolean,
     private val enableCache: Boolean,
     private val logLevel: Int
@@ -49,8 +48,10 @@ class ZeroPiiSDK private constructor(
 
         logger.d("Initializing ZeroPiiSDK")
 
+        require(apiUrl.isNotBlank()) { "apiUrl must not be blank" }
+
         // Create network provider
-        val networkProvider = NetworkProvider(apiUrl, authUrl)
+        val networkProvider = NetworkProvider(apiUrl)
 
         // Setup encryption manager if enabled
         encryptionManager = EncryptionManager(enableEncryption, logger)
@@ -59,12 +60,7 @@ class ZeroPiiSDK private constructor(
         tokenCache = TokenCache(enableCache)
 
         // Create repositories
-        authRepository = AuthRepositoryImpl(
-            networkProvider,
-            clientId,
-            clientSecret,
-            logger
-        )
+        authRepository = AccessTokenProviderAuthRepository(tokenProvider, logger)
 
         tokenRepository = TokenRepositoryImpl(networkProvider, authRepository, encryptionManager, tokenCache, logger)
         logger.d("ZeroPiiSDK initialization complete")
@@ -517,18 +513,14 @@ class ZeroPiiSDK private constructor(
 
         @JvmStatic
         fun initialize(
-            clientId: String,
-            clientSecret: String,
+            tokenProvider: AccessTokenProvider,
             apiUrl: String,
-            authUrl: String,
             logLevel: ZeroPiiLogger.LogLevel = ZeroPiiLogger.LogLevel.OFF
         ): ZeroPiiSDK {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: ZeroPiiSDK(
-                    clientId,
-                    clientSecret,
+                    tokenProvider,
                     apiUrl,
-                    authUrl,
                     enableEncryption = true,
                     enableCache = true,
                     logLevel = logLevel.intValue
