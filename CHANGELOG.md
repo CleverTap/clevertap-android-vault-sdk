@@ -1,9 +1,9 @@
-## CleverTap Vault SDK CHANGE LOG
+## CleverTap ZeroPii SDK CHANGE LOG
 ### Version 1.0.0 (December 10, 2025)
 
 #### 🎉 Initial Release
 
-The CleverTap Vault SDK provides secure tokenization of Personally Identifiable Information (PII) for Android applications.
+The CleverTap ZeroPii SDK provides secure tokenization of Personally Identifiable Information (PII) for Android applications.
 
 #### Features
 
