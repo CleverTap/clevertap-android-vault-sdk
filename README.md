@@ -1,8 +1,8 @@
-# CleverTap Vault SDK for Android
+# CleverTap ZeroPii SDK for Android
 
 ## Overview
 
-CleverTap Vault SDK provides a secure way to tokenize Personally Identifiable Information (PII) in your Android applications. By replacing sensitive data with format-preserving tokens, you can minimize the exposure of sensitive information while maintaining data utility.
+CleverTap ZeroPii SDK provides a secure way to tokenize Personally Identifiable Information (PII) in your Android applications. By replacing sensitive data with format-preserving tokens, you can minimize the exposure of sensitive information while maintaining data utility.
 
 ## Features
 
@@ -35,11 +35,11 @@ No special permissions required. The SDK uses standard internet connectivity.
 
 ## Installation
 
-Add the CleverTap Vault SDK to your app's `build.gradle` file:
+Add the CleverTap ZeroPii SDK to your app's `build.gradle` file:
 
 ```gradle
 dependencies {
-    implementation 'com.clevertap.android:clevertap-vault-sdk:1.0.0'
+    implementation 'com.clevertap.android:clevertap-zeropii-sdk:1.0.0'
 }
 ```
 
@@ -57,7 +57,7 @@ class MyApplication : Application() {
         super.onCreate()
         
         // Initialize with minimum required parameters
-        VaultSDK.initialize(
+        ZeroPiiSDK.initialize(
             clientId = "YOUR_CLIENT_ID",
             clientSecret = "YOUR_CLIENT_SECRET", 
             apiUrl = "YOUR_API_URL",
@@ -65,12 +65,12 @@ class MyApplication : Application() {
         )
         
         // Or with custom log level
-        VaultSDK.initialize(
+        ZeroPiiSDK.initialize(
             clientId = "YOUR_CLIENT_ID",
             clientSecret = "YOUR_CLIENT_SECRET",
             apiUrl = "YOUR_API_URL",
             authUrl = "YOUR_AUTH_URL",
-            logLevel = VaultLogger.LogLevel.DEBUG // Optional
+            logLevel = ZeroPiiLogger.LogLevel.DEBUG // Optional
         )
     }
 }
@@ -82,26 +82,26 @@ class MyApplication : Application() {
 
 ```kotlin
 class MainActivity : AppCompatActivity() {
-    private lateinit var vaultSDK: VaultSDK
+    private lateinit var zeroPiiSDK: ZeroPiiSDK
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         // Get SDK instance (after initialization)
-        vaultSDK = VaultSDK.getInstance()
+        zeroPiiSDK = ZeroPiiSDK.getInstance()
         
         // Tokenize sensitive data
-        vaultSDK.tokenize("555-12-3456") { result ->
+        zeroPiiSDK.tokenize("555-12-3456") { result ->
             when (result) {
                 is TokenizeResult.Success -> {
                     val token = result.token
                     val wasExisting = result.exists
                     val isNew = result.newlyCreated
                     // Use the token instead of original value
-                    Log.d("VaultSDK", "Token: $token")
+                    Log.d("ZeroPiiSDK", "Token: $token")
                 }
                 is TokenizeResult.Error -> {
-                    Log.e("VaultSDK", "Tokenization failed: ${result.message}")
+                    Log.e("ZeroPiiSDK", "Tokenization failed: ${result.message}")
                 }
             }
         }
@@ -112,15 +112,15 @@ class MainActivity : AppCompatActivity() {
 ### 3. Basic Detokenization
 
 ```kotlin
-vaultSDK.deTokenizeAsString("555-67-8901") { result ->
+zeroPiiSDK.deTokenizeAsString("555-67-8901") { result ->
     when (result) {
         is DetokenizeResult.Success -> {
             val originalValue:String = result.value
             val exists = result.exists
-            Log.d("VaultSDK", "Original value: $originalValue")
+            Log.d("ZeroPiiSDK", "Original value: $originalValue")
         }
         is DetokenizeResult.Error -> {
-            Log.e("VaultSDK", "Detokenization failed: ${result.message}")
+            Log.e("ZeroPiiSDK", "Detokenization failed: ${result.message}")
         }
     }
 }
@@ -137,21 +137,21 @@ val sensitiveData = listOf(
     "555-44-5566"
 )
 
-vaultSDK.batchTokenizeStringValues(sensitiveData) { result ->
+zeroPiiSDK.batchTokenizeStringValues(sensitiveData) { result ->
     when (result) {
         is BatchTokenizeResult.Success -> {
             val summary = result.summary
-            Log.d("VaultSDK", "Processed: ${summary.processedCount}")
-            Log.d("VaultSDK", "New tokens: ${summary.newlyCreatedCount}")
-            Log.d("VaultSDK", "Existing tokens: ${summary.existingCount}")
+            Log.d("ZeroPiiSDK", "Processed: ${summary.processedCount}")
+            Log.d("ZeroPiiSDK", "New tokens: ${summary.newlyCreatedCount}")
+            Log.d("ZeroPiiSDK", "Existing tokens: ${summary.existingCount}")
             
             // Access individual results
             result.results.forEach { item ->
-                Log.d("VaultSDK", "${item.originalValue} -> ${item.token}")
+                Log.d("ZeroPiiSDK", "${item.originalValue} -> ${item.token}")
             }
         }
         is BatchTokenizeResult.Error -> {
-            Log.e("VaultSDK", "Batch tokenization failed: ${result.message}")
+            Log.e("ZeroPiiSDK", "Batch tokenization failed: ${result.message}")
         }
     }
 }
@@ -168,25 +168,25 @@ val tokens = listOf(
     "TKN_555445566_004"
 )
 
-vaultSDK.batchDeTokenizeAsString(tokens) { result ->
+zeroPiiSDK.batchDeTokenizeAsString(tokens) { result ->
     when (result) {
         is BatchDetokenizeResult.Success -> {
             val summary = result.summary
-            Log.d("VaultSDK", "Processed: ${summary.processedCount}")
-            Log.d("VaultSDK", "Found: ${summary.foundCount}")
-            Log.d("VaultSDK", "Not found: ${summary.notFoundCount}")
+            Log.d("ZeroPiiSDK", "Processed: ${summary.processedCount}")
+            Log.d("ZeroPiiSDK", "Found: ${summary.foundCount}")
+            Log.d("ZeroPiiSDK", "Not found: ${summary.notFoundCount}")
             
             // Access individual results
             result.results.forEach { item ->
                 if (item.exists) {
-                    Log.d("VaultSDK", "${item.token} -> ${item.value}")
+                    Log.d("ZeroPiiSDK", "${item.token} -> ${item.value}")
                 } else {
-                    Log.d("VaultSDK", "${item.token} -> Not found")
+                    Log.d("ZeroPiiSDK", "${item.token} -> Not found")
                 }
             }
         }
         is BatchDetokenizeResult.Error -> {
-            Log.e("VaultSDK", "Batch detokenization failed: ${result.message}")
+            Log.e("ZeroPiiSDK", "Batch detokenization failed: ${result.message}")
         }
     }
 }
@@ -212,8 +212,8 @@ fun initialize(
     clientSecret: String, 
     apiUrl: String,
     authUrl: String,
-    logLevel: VaultLogger.LogLevel = VaultLogger.LogLevel.OFF
-): VaultSDK
+    logLevel: ZeroPiiLogger.LogLevel = ZeroPiiLogger.LogLevel.OFF
+): ZeroPiiSDK
 ```
 
 **Parameters:**
@@ -226,7 +226,7 @@ fun initialize(
 #### `getInstance()`
 
 ```kotlin
-fun getInstance(): VaultSDK
+fun getInstance(): ZeroPiiSDK
 ```
 
 Returns the initialized SDK instance. Throws `IllegalStateException` if called before `initialize()`.

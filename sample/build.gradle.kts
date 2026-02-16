@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.clevertap.demo.ctvaultsdk"
+    namespace = "com.clevertap.demo.ctzeropii"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.clevertap.demo.ctvaultsdk"
+        applicationId = "com.clevertap.demo.ctzeropii"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -36,7 +36,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":clevertap-android-vault-sdk"))
+    implementation(project(":clevertap-android-zeropii-sdk"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
