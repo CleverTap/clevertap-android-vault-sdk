@@ -29,32 +29,6 @@ sealed class TokenizeRepoResult {
 }
 
 /**
- * Repository layer result class for detokenization operations
- * Used internally by TokenRepositoryImpl (String values only)
- */
-sealed class DetokenizeRepoResult {
-    /**
-     * Successful detokenization result
-     *
-     * @property value The original string value
-     * @property exists Whether the token exists
-     * @property dataType The data type of the value
-     */
-    data class Success(
-        val value: String?,
-        val exists: Boolean,
-        val dataType: String?
-    ) : DetokenizeRepoResult()
-
-    /**
-     * Error during detokenization
-     *
-     * @property message The error message
-     */
-    data class Error(val message: String) : DetokenizeRepoResult()
-}
-
-/**
  * Repository layer result class for batch tokenization operations
  * Used internally by TokenRepositoryImpl (String values only)
  */
@@ -78,26 +52,3 @@ sealed class BatchTokenizeRepoResult {
     data class Error(val message: String) : BatchTokenizeRepoResult()
 }
 
-/**
- * Repository layer result class for batch detokenization operations
- * Used internally by TokenRepositoryImpl (String values only)
- */
-sealed class BatchDetokenizeRepoResult {
-    /**
-     * Successful batch detokenization result
-     *
-     * @property results List of individual detokenization results (Repository layer items)
-     * @property summary Summary statistics for the batch operation
-     */
-    data class Success(
-        val results: List<BatchDetokenItemResponse>,
-        val summary: BatchDetokenizeSummary
-    ) : BatchDetokenizeRepoResult()
-
-    /**
-     * Error during batch detokenization
-     *
-     * @property message The error message
-     */
-    data class Error(val message: String) : BatchDetokenizeRepoResult()
-}

@@ -1,16 +1,8 @@
 package com.clevertap.android.zeropii.sdk.repository
 
-import com.clevertap.android.zeropii.sdk.cache.TokenCache
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenItemResponse
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeRepoResult
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeResponse
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeSummary
-import com.clevertap.android.zeropii.sdk.model.BatchTokenItemResponse
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeResponse
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeSummary
-import com.clevertap.android.zeropii.sdk.model.DetokenizeRepoResult
-import com.clevertap.android.zeropii.sdk.model.DetokenizeResponse
 import com.clevertap.android.zeropii.sdk.model.TokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeResponse
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
@@ -93,155 +85,6 @@ class RetryHandler(
 }
 
 /**
- * Manages cache operations for tokens and values
- */
-class CacheManager(
-    private val tokenCache: TokenCache,
-    private val logger: ZeroPiiLogger
-) {
-    /**
-     * Gets token from cache for a given value
-     */
-    fun getTokenFromCache(value: String): CacheResult? {
-        if (!tokenCache.isEnabled()) return null
-
-        val cachedTokenPair = tokenCache.getToken(value)
-        return if (cachedTokenPair != null) {
-            logger.d("Token found in cache")
-            CacheResult.TokenResult(
-                token = cachedTokenPair.first,
-                dataType = cachedTokenPair.second
-            )
-        } else null
-    }
-
-    /**
-     * Gets value from cache for a given token
-     */
-    fun getValueFromCache(token: String): CacheResult? {
-        if (!tokenCache.isEnabled()) return null
-
-        val cachedValuePair = tokenCache.getValue(token)
-        return if (cachedValuePair != null) {
-            logger.d("Value found in cache")
-            CacheResult.ValueResult(
-                value = cachedValuePair.first,
-                dataType = cachedValuePair.second
-            )
-        } else null
-    }
-
-    /**
-     * Gets multiple tokens from cache for batch operations
-     */
-    fun getBatchTokensFromCache(values: List<String>): BatchCacheResult {
-        if (!tokenCache.isEnabled()) {
-            return BatchCacheResult(emptyList(), values)
-        }
-
-        val cached = mutableListOf<BatchTokenItemResponse>()
-        val uncached = mutableListOf<String>()
-
-        values.forEach { value ->
-            val cachedPair = tokenCache.getToken(value)
-            if (cachedPair != null) {
-                cached.add(
-                    BatchTokenItemResponse(
-                        originalValue = value,
-                        token = cachedPair.first,
-                        exists = true,
-                        newlyCreated = false,
-                        dataType = cachedPair.second
-                    )
-                )
-            } else {
-                uncached.add(value)
-            }
-        }
-
-        return BatchCacheResult(cached, uncached)
-    }
-
-    /**
-     * Gets multiple values from cache for batch operations
-     */
-    fun getBatchValuesFromCache(tokens: List<String>): BatchCacheResult {
-        if (!tokenCache.isEnabled()) {
-            return BatchCacheResult(emptyList(), tokens)
-        }
-
-        val cached = mutableListOf<BatchDetokenItemResponse>()
-        val uncached = mutableListOf<String>()
-
-        tokens.forEach { token ->
-            val cachedPair = tokenCache.getValue(token)
-            if (cachedPair != null) {
-                cached.add(
-                    BatchDetokenItemResponse(
-                        token = token,
-                        value = cachedPair.first,
-                        exists = true,
-                        dataType = cachedPair.second
-                    )
-                )
-            } else {
-                uncached.add(token)
-            }
-        }
-
-        return BatchCacheResult(cached, uncached)
-    }
-
-    /**
-     * Stores token in cache
-     */
-    fun storeTokenInCache(value: String, token: String, dataType: String?) {
-        if (tokenCache.isEnabled()) {
-            tokenCache.putToken(value, token, dataType)
-            logger.d("Token stored in cache")
-        }
-    }
-
-    /**
-     * Stores value in cache
-     */
-    fun storeValueInCache(token: String, value: String, dataType: String?) {
-        if (tokenCache.isEnabled()) {
-            tokenCache.putValue(token, value, dataType)
-            logger.d("Value stored in cache")
-        }
-    }
-
-    /**
-     * Stores batch tokenization results in cache
-     */
-    fun storeBatchTokensInCache(results: List<BatchTokenItemResponse>) {
-        if (tokenCache.isEnabled()) {
-            results.forEach { item ->
-                if (item.exists || item.newlyCreated) {
-                    tokenCache.putToken(item.originalValue, item.token, item.dataType)
-                }
-            }
-            logger.d("Batch tokens stored in cache")
-        }
-    }
-
-    /**
-     * Stores batch detokenization results in cache
-     */
-    fun storeBatchValuesInCache(results: List<BatchDetokenItemResponse>) {
-        if (tokenCache.isEnabled()) {
-            results.forEach { item ->
-                if (item.exists && item.value != null) {
-                    tokenCache.putValue(item.token, item.value, item.dataType)
-                }
-            }
-            logger.d("Batch values stored in cache")
-        }
-    }
-}
-
-/**
  * Processes API responses into appropriate result formats
  */
 class ResponseProcessor(
@@ -267,40 +110,19 @@ class ResponseProcessor(
     }
 
     /**
-     * Processes detokenize response
-     */
-    fun processDetokenizeResponse(response: Response<*>): DetokenizeRepoResult {
-        return if (response.isSuccessful && response.body() != null) {
-            val detokenizeResponse = response.body() as DetokenizeResponse
-            DetokenizeRepoResult.Success(
-                value = detokenizeResponse.value,
-                exists = detokenizeResponse.exists,
-                dataType = detokenizeResponse.dataType
-            )
-        } else {
-            val errorMessage = getErrorMessage(response, "Detokenization")
-            logger.e(errorMessage)
-            DetokenizeRepoResult.Error(errorMessage)
-        }
-    }
-
-    /**
      * Processes batch tokenize response
      */
-    fun processBatchTokenizeResponse(
-        response: Response<*>,
-        cachedResults: List<BatchTokenItemResponse>
-    ): BatchTokenizeRepoResult {
+    fun processBatchTokenizeResponse(response: Response<*>): BatchTokenizeRepoResult {
         return if (response.isSuccessful && response.body() != null) {
             val batchResponse = response.body() as BatchTokenizeResponse
-            val allResults = cachedResults + batchResponse.results
+            val results = batchResponse.results
 
             BatchTokenizeRepoResult.Success(
-                results = allResults,
+                results = results,
                 summary = BatchTokenizeSummary(
-                    processedCount = allResults.size,
-                    existingCount = allResults.count { it.exists },
-                    newlyCreatedCount = allResults.count { it.newlyCreated }
+                    processedCount = results.size,
+                    existingCount = results.count { it.exists },
+                    newlyCreatedCount = results.count { it.newlyCreated }
                 )
             )
         } else {
@@ -310,50 +132,8 @@ class ResponseProcessor(
         }
     }
 
-    /**
-     * Processes batch detokenize response
-     */
-    fun processBatchDetokenizeResponse(
-        response: Response<*>,
-        cachedResults: List<BatchDetokenItemResponse>
-    ): BatchDetokenizeRepoResult {
-        return if (response.isSuccessful && response.body() != null) {
-            val batchResponse = response.body() as BatchDetokenizeResponse
-            val allResults = cachedResults + batchResponse.results
-
-            BatchDetokenizeRepoResult.Success(
-                results = allResults,
-                summary = BatchDetokenizeSummary(
-                    processedCount = allResults.size,
-                    foundCount = allResults.count { it.exists },
-                    notFoundCount = allResults.count { !it.exists }
-                )
-            )
-        } else {
-            val errorMessage = getErrorMessage(response, "Batch detokenization")
-            logger.e(errorMessage)
-            BatchDetokenizeRepoResult.Error(errorMessage)
-        }
-    }
-
     private fun getErrorMessage(response: Response<*>, operation: String): String {
         val errorBody = response.errorBody()?.string() ?: "Unknown error"
         return "$operation failed: ${response.code()} - $errorBody"
     }
 }
-
-/**
- * Sealed class representing cache results
- */
-sealed class CacheResult {
-    data class TokenResult(val token: String, val dataType: String) : CacheResult()
-    data class ValueResult(val value: String, val dataType: String) : CacheResult()
-}
-
-/**
- * Data class for batch cache results
- */
-data class BatchCacheResult(
-    val cached: List<Any>, // Can be BatchTokenItemResponse or BatchDetokenItemResponse
-    val uncached: List<String>
-)

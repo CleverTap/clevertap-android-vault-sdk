@@ -4,9 +4,7 @@ import com.clevertap.android.zeropii.sdk.api.TokenizationApi
 import com.clevertap.android.zeropii.sdk.encryption.DecryptionSuccess
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionSuccess
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeRequest
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeRequest
-import com.clevertap.android.zeropii.sdk.model.DetokenizeRequest
 import com.clevertap.android.zeropii.sdk.model.EncryptedRequest
 import com.clevertap.android.zeropii.sdk.model.EncryptedResponse
 import com.clevertap.android.zeropii.sdk.model.TokenizeRequest
@@ -24,22 +22,10 @@ interface EncryptionStrategy {
         value: String
     ): Response<*>
 
-    suspend fun detokenize(
-        api: TokenizationApi,
-        accessToken: String,
-        token: String
-    ): Response<*>
-
     suspend fun batchTokenize(
         api: TokenizationApi,
         accessToken: String,
         values: List<String>
-    ): Response<*>
-
-    suspend fun batchDetokenize(
-        api: TokenizationApi,
-        accessToken: String,
-        tokens: List<String>
     ): Response<*>
 }
 
@@ -59,15 +45,6 @@ class NoEncryptionStrategy(
         return api.tokenize("Bearer $accessToken", TokenizeRequest(value))
     }
 
-    override suspend fun detokenize(
-        api: TokenizationApi,
-        accessToken: String,
-        token: String
-    ): Response<*> {
-        logger.d("Making non-encrypted detokenize call")
-        return api.detokenize("Bearer $accessToken", DetokenizeRequest(token))
-    }
-
     override suspend fun batchTokenize(
         api: TokenizationApi,
         accessToken: String,
@@ -75,15 +52,6 @@ class NoEncryptionStrategy(
     ): Response<*> {
         logger.d("Making non-encrypted batch tokenize call")
         return api.batchTokenize("Bearer $accessToken", BatchTokenizeRequest(values))
-    }
-
-    override suspend fun batchDetokenize(
-        api: TokenizationApi,
-        accessToken: String,
-        tokens: List<String>
-    ): Response<*> {
-        logger.d("Making non-encrypted batch detokenize call")
-        return api.batchDetokenize("Bearer $accessToken", BatchDetokenizeRequest(tokens))
     }
 }
 
@@ -130,36 +98,6 @@ class WithEncryptionStrategy(
         )
     }
 
-    override suspend fun detokenize(
-        api: TokenizationApi,
-        accessToken: String,
-        token: String
-    ): Response<*> {
-        if (encryptionDisabledDueToFailure || !encryptionManager.isEnabled()) {
-            logger.d("Encryption is disabled or failed, falling back to non-encrypted detokenization")
-            return fallbackStrategy.detokenize(api, accessToken, token)
-        }
-
-        logger.d("Making encrypted detokenize call")
-
-        // FALLBACK 1: If encryption of request fails
-        val encryptedRequest = createEncryptedRequest(DetokenizeRequest(token))
-        if (encryptedRequest == null) {
-            logger.e("Encryption failed, falling back to non-encrypted detokenization")
-            return fallbackStrategy.detokenize(api, accessToken, token)
-        }
-
-        // FALLBACK 2: If API call fails (especially 419 error)
-        return executeWithRetryForEncryption(
-            encryptedCall = {
-                api.detokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
-            },
-            fallbackCall = {
-                fallbackStrategy.detokenize(api, accessToken, token)
-            }
-        )
-    }
-
     override suspend fun batchTokenize(
         api: TokenizationApi,
         accessToken: String,
@@ -186,36 +124,6 @@ class WithEncryptionStrategy(
             },
             fallbackCall = {
                 fallbackStrategy.batchTokenize(api, accessToken, values)
-            }
-        )
-    }
-
-    override suspend fun batchDetokenize(
-        api: TokenizationApi,
-        accessToken: String,
-        tokens: List<String>
-    ): Response<*> {
-        if (encryptionDisabledDueToFailure || !encryptionManager.isEnabled()) {
-            logger.d("Encryption is disabled or failed, falling back to non-encrypted batch detokenization")
-            return fallbackStrategy.batchDetokenize(api, accessToken, tokens)
-        }
-
-        logger.d("Making encrypted batch detokenize call")
-
-        // FALLBACK 1: If encryption of request fails
-        val encryptedRequest = createEncryptedRequest(BatchDetokenizeRequest(tokens))
-        if (encryptedRequest == null) {
-            logger.e("Encryption failed, falling back to non-encrypted batch detokenization")
-            return fallbackStrategy.batchDetokenize(api, accessToken, tokens)
-        }
-
-        // FALLBACK 2: If API call fails (especially 419 error)
-        return executeWithRetryForEncryption(
-            encryptedCall = {
-                api.batchDetokenizeEncrypted("Bearer $accessToken", true, encryptedRequest)
-            },
-            fallbackCall = {
-                fallbackStrategy.batchDetokenize(api, accessToken, tokens)
             }
         )
     }
