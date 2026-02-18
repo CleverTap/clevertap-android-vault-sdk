@@ -1,10 +1,7 @@
 package com.clevertap.android.zeropii.sdk.repository
 
-import com.clevertap.android.zeropii.sdk.cache.TokenCache
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeRepoResult
-import com.clevertap.android.zeropii.sdk.model.DetokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.network.NetworkProvider
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
@@ -13,17 +10,12 @@ class TokenRepositoryImpl(
     private val networkProvider: NetworkProvider,
     private val authRepository: AuthRepository,
     private val encryptionManager: EncryptionManager,
-    private val tokenCache: TokenCache,
     private val logger: ZeroPiiLogger
 ) : TokenRepository {
 
     // Utility components initialized lazily
     private val retryHandler by lazy {
         RetryHandler(authRepository, logger)
-    }
-
-    private val cacheManager by lazy {
-        CacheManager(tokenCache, logger)
     }
 
     private val responseProcessor by lazy {
@@ -49,38 +41,12 @@ class TokenRepositoryImpl(
         )
     }
 
-    private val singleDetokenizeOperation by lazy {
-        createSingleDetokenizeOperation(NoEncryptionStrategy(logger))
-    }
-
-    private val singleDetokenizeWithEncryptionOperation by lazy {
-        createSingleDetokenizeOperation(
-            encryptionStrategyFactory.createStrategy(
-                encryptionManager,
-                logger
-            )
-        )
-    }
-
     private val batchTokenizeOperation by lazy {
         createBatchTokenizeOperation(NoEncryptionStrategy(logger))
     }
 
     private val batchTokenizeWithEncryptionOperation by lazy {
         createBatchTokenizeOperation(
-            encryptionStrategyFactory.createStrategy(
-                encryptionManager,
-                logger
-            )
-        )
-    }
-
-    private val batchDetokenizeOperation by lazy {
-        createBatchDetokenizeOperation(NoEncryptionStrategy(logger))
-    }
-
-    private val batchDetokenizeWithEncryptionOperation by lazy {
-        createBatchDetokenizeOperation(
             encryptionStrategyFactory.createStrategy(
                 encryptionManager,
                 logger
@@ -96,32 +62,16 @@ class TokenRepositoryImpl(
         return singleTokenizeOperation.execute(value)
     }
 
-    override suspend fun detokenize(token: String): DetokenizeRepoResult {
-        return singleDetokenizeOperation.execute(token)
-    }
-
     override suspend fun batchTokenize(values: List<String>): BatchTokenizeRepoResult {
         return batchTokenizeOperation.execute(values)
-    }
-
-    override suspend fun batchDetokenize(tokens: List<String>): BatchDetokenizeRepoResult {
-        return batchDetokenizeOperation.execute(tokens)
     }
 
     override suspend fun tokenizeWithEncryptionOverTransit(value: String): TokenizeRepoResult {
         return singleTokenizeWithEncryptionOperation.execute(value)
     }
 
-    override suspend fun detokenizeWithEncryptionOverTransit(token: String): DetokenizeRepoResult {
-        return singleDetokenizeWithEncryptionOperation.execute(token)
-    }
-
     override suspend fun batchTokenizeWithEncryptionOverTransit(values: List<String>): BatchTokenizeRepoResult {
         return batchTokenizeWithEncryptionOperation.execute(values)
-    }
-
-    override suspend fun batchDetokenizeWithEncryptionOverTransit(tokens: List<String>): BatchDetokenizeRepoResult {
-        return batchDetokenizeWithEncryptionOperation.execute(tokens)
     }
 
     // ========================================
@@ -130,27 +80,11 @@ class TokenRepositoryImpl(
 
     internal fun createSingleTokenizeOperation(strategy: EncryptionStrategy): SingleTokenizeOperation {
         return SingleTokenizeOperation(
-            tokenCache = tokenCache,
             authRepository = authRepository,
             networkProvider = networkProvider,
             encryptionManager = encryptionManager,
             logger = logger,
             retryHandler = retryHandler,
-            cacheManager = cacheManager,
-            responseProcessor = responseProcessor,
-            encryptionStrategy = strategy
-        )
-    }
-
-    internal fun createSingleDetokenizeOperation(strategy: EncryptionStrategy): SingleDetokenizeOperation {
-        return SingleDetokenizeOperation(
-            tokenCache = tokenCache,
-            authRepository = authRepository,
-            networkProvider = networkProvider,
-            encryptionManager = encryptionManager,
-            logger = logger,
-            retryHandler = retryHandler,
-            cacheManager = cacheManager,
             responseProcessor = responseProcessor,
             encryptionStrategy = strategy
         )
@@ -158,27 +92,11 @@ class TokenRepositoryImpl(
 
     internal fun createBatchTokenizeOperation(strategy: EncryptionStrategy): BatchTokenizeOperation {
         return BatchTokenizeOperation(
-            tokenCache = tokenCache,
             authRepository = authRepository,
             networkProvider = networkProvider,
             encryptionManager = encryptionManager,
             logger = logger,
             retryHandler = retryHandler,
-            cacheManager = cacheManager,
-            responseProcessor = responseProcessor,
-            encryptionStrategy = strategy
-        )
-    }
-
-    internal fun createBatchDetokenizeOperation(strategy: EncryptionStrategy): BatchDetokenizeOperation {
-        return BatchDetokenizeOperation(
-            tokenCache = tokenCache,
-            authRepository = authRepository,
-            networkProvider = networkProvider,
-            encryptionManager = encryptionManager,
-            logger = logger,
-            retryHandler = retryHandler,
-            cacheManager = cacheManager,
             responseProcessor = responseProcessor,
             encryptionStrategy = strategy
         )

@@ -16,20 +16,6 @@ data class TokenizeResponse(
 )
 
 /**
- * Request model for detokenization
- */
-data class DetokenizeRequest(val token: String)
-
-/**
- * Response model for detokenization
- */
-data class DetokenizeResponse(
-    val value: String?,
-    val exists: Boolean,
-    val dataType: String?
-)
-
-/**
  * Request model for batch tokenization
  */
 data class BatchTokenizeRequest(val values: List<String>)
@@ -40,19 +26,6 @@ data class BatchTokenizeRequest(val values: List<String>)
 data class BatchTokenizeResponse(
     val results: List<BatchTokenItemResponse>,
     val summary: BatchTokenizeSummary
-)
-
-/**
- * Request model for batch detokenization
- */
-data class BatchDetokenizeRequest(val tokens: List<String>)
-
-/**
- * Response model for batch detokenization
- */
-data class BatchDetokenizeResponse(
-    val results: List<BatchDetokenItemResponse>,
-    val summary: BatchDetokenizeSummary
 )
 
 /**
@@ -73,25 +46,6 @@ data class BatchTokenizeSummary(
     val processedCount: Int,
     val existingCount: Int,
     val newlyCreatedCount: Int
-)
-
-/**
- * Result for individual item in batch detokenization
- */
-data class BatchDetokenItemResponse(
-    val token: String,
-    val value: String?,
-    val exists: Boolean,
-    val dataType: String?
-)
-
-/**
- * Summary statistics for batch detokenization
- */
-data class BatchDetokenizeSummary(
-    val processedCount: Int,
-    val foundCount: Int,
-    val notFoundCount: Int
 )
 
 /**

@@ -1,6 +1,5 @@
 package com.clevertap.android.zeropii.sdk.repository
 
-import com.clevertap.android.zeropii.sdk.cache.TokenCache
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
 import com.clevertap.android.zeropii.sdk.network.NetworkProvider
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
@@ -10,22 +9,19 @@ import retrofit2.Response
  * Abstract base class implementing the Template Method pattern for token operations.
  *
  * This class defines the common algorithm structure for all token operations:
- * 1. Check cache for existing result
- * 2. If not cached, make API call with retry logic
+ * 1. Validate the request
+ * 2. Make API call with retry logic
  * 3. Process the API response
- * 4. Update cache with result
- * 5. Return final result
+ * 4. Return result
  *
  * Subclasses implement specific steps for their operation type.
  */
 abstract class BaseTokenOperation<TRequest, TResponse>(
-    protected val tokenCache: TokenCache,
     protected val authRepository: AuthRepository,
     protected val networkProvider: NetworkProvider,
     protected val encryptionManager: EncryptionManager,
     protected val logger: ZeroPiiLogger,
     private val retryHandler: RetryHandler,
-    protected val cacheManager: CacheManager,
     protected val responseProcessor: ResponseProcessor
 ) {
 
@@ -37,39 +33,19 @@ abstract class BaseTokenOperation<TRequest, TResponse>(
         logger.d("Starting ${getOperationType()} operation")
 
         return try {
-            // Step 1: Check cache and get explicit state
-            val cacheResult = checkCacheWithState(request)
-
-            // Step 2: Return immediately if everything is cached
-            if (cacheResult is CacheCheckResult.CompleteFromCache) {
-                logger.d("All results found in cache for ${getOperationType()}")
-                return cacheResult.result
-            }
-
-            // Step 3: Validate request
+            // Step 1: Validate request
             validateRequest(request)
 
-            // Step 4: Extract uncached request for API call
-            val uncachedRequest = when (cacheResult) {
-                is CacheCheckResult.PartialFromCache -> cacheResult.uncachedRequest
-                is CacheCheckResult.NothingFromCache -> cacheResult.uncachedRequest
-                else -> throw IllegalStateException("Unexpected cache result type")
-            }
-
-            // Step 5: Execute API call with retry logic
+            // Step 2: Execute API call with retry logic
             val apiResponse = retryHandler.executeWithRetry {
                 val accessToken = authRepository.getAccessToken()
-                makeApiCall(uncachedRequest, accessToken)
+                makeApiCall(request, accessToken)
             }
 
-            // Step 6: Process response with explicit cache data
-            val processedResult = processResponseWithCacheData(apiResponse, cacheResult)
-
-            // Step 7: Update cache
-            updateCache(request, processedResult)
-
+            // Step 3: Process response
+            val result = processResponse(apiResponse)
             logger.d("${getOperationType()} operation completed successfully")
-            processedResult
+            result
 
         } catch (e: Exception) {
             logger.e("Error during ${getOperationType()}", e)
@@ -78,25 +54,19 @@ abstract class BaseTokenOperation<TRequest, TResponse>(
     }
 
     // Abstract methods to be implemented by subclasses
-    internal abstract fun checkCacheWithState(request: TRequest): CacheCheckResult<TRequest, TResponse>
-
-    internal abstract fun processResponseWithCacheData(
-        response: Response<*>,
-        cacheResult: CacheCheckResult<TRequest, TResponse>
-    ): TResponse
+    internal abstract fun processResponse(response: Response<*>): TResponse
     protected abstract fun getOperationType(): String
     internal open fun validateRequest(request: TRequest) {}
-    internal abstract suspend fun makeApiCall(request: TRequest, accessToken: String): retrofit2.Response<*>
-    internal abstract fun updateCache(request: TRequest, result: TResponse)
+    internal abstract suspend fun makeApiCall(request: TRequest, accessToken: String): Response<*>
     internal abstract fun createErrorResult(message: String): TResponse
 
     // Helper methods available to subclasses
 
-    protected fun isSuccessfulResponse(response: retrofit2.Response<*>): Boolean {
+    protected fun isSuccessfulResponse(response: Response<*>): Boolean {
         return response.isSuccessful && response.body() != null
     }
 
-    protected fun createErrorResponse(response: retrofit2.Response<*>, operation: String): String {
+    protected fun createErrorResponse(response: Response<*>, operation: String): String {
         val errorBody = response.errorBody()?.string() ?: "Unknown error"
         return "$operation failed: ${response.code()} - $errorBody"
     }
@@ -105,5 +75,4 @@ abstract class BaseTokenOperation<TRequest, TResponse>(
         logger.e("Error during $operation", e)
         return "Error during $operation: ${e.message}"
     }
-
 }
