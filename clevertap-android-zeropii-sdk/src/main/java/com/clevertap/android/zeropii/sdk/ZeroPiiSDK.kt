@@ -1,11 +1,8 @@
 package com.clevertap.android.zeropii.sdk
 
 import com.clevertap.android.zeropii.sdk.auth.AccessTokenProvider
-import com.clevertap.android.zeropii.sdk.cache.TokenCache
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeResult
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeResult
-import com.clevertap.android.zeropii.sdk.model.DetokenizeResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeResult
 import com.clevertap.android.zeropii.sdk.network.NetworkProvider
 import com.clevertap.android.zeropii.sdk.repository.AccessTokenProviderAuthRepository
@@ -29,14 +26,12 @@ class ZeroPiiSDK private constructor(
     private val tokenProvider: AccessTokenProvider,
     private val apiUrl: String,
     private val enableEncryption: Boolean,
-    private val enableCache: Boolean,
     private val logLevel: Int
 ) {
     internal var sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     internal lateinit var tokenRepository: TokenRepository
     internal lateinit var authRepository: AuthRepository
     private lateinit var encryptionManager: EncryptionManager
-    private lateinit var tokenCache: TokenCache
     private lateinit var logger: ZeroPiiLogger
 
     init {
@@ -56,13 +51,10 @@ class ZeroPiiSDK private constructor(
         // Setup encryption manager if enabled
         encryptionManager = EncryptionManager(enableEncryption, logger)
 
-        // Initialize token cache if enabled
-        tokenCache = TokenCache(enableCache)
-
         // Create repositories
         authRepository = AccessTokenProviderAuthRepository(tokenProvider, logger)
 
-        tokenRepository = TokenRepositoryImpl(networkProvider, authRepository, encryptionManager, tokenCache, logger)
+        tokenRepository = TokenRepositoryImpl(networkProvider, authRepository, encryptionManager, logger)
         logger.d("ZeroPiiSDK initialization complete")
     }
 
@@ -122,64 +114,6 @@ class ZeroPiiSDK private constructor(
      */
     fun tokenize(value: Boolean, callback: (TokenizeResult) -> Unit) {
         performTokenization(value, Boolean::class.java, callback)
-    }
-
-    // ========================================
-    // DETOKENIZATION METHODS (Type-Specific)
-    // ========================================
-
-    /**
-     * Detokenizes a token and returns the result as String
-     * @param token The token to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun deTokenizeAsString(token: String, callback: (DetokenizeResult<String>) -> Unit) {
-        performDetokenization(token, String::class.java, callback)
-    }
-
-    /**
-     * Detokenizes a token and returns the result as Int
-     * @param token The token to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun deTokenizeAsInt(token: String, callback: (DetokenizeResult<Int>) -> Unit) {
-        performDetokenization(token, Int::class.java, callback)
-    }
-
-    /**
-     * Detokenizes a token and returns the result as Long
-     * @param token The token to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun deTokenizeAsLong(token: String, callback: (DetokenizeResult<Long>) -> Unit) {
-        performDetokenization(token, Long::class.java, callback)
-    }
-
-    /**
-     * Detokenizes a token and returns the result as Float
-     * @param token The token to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun deTokenizeAsFloat(token: String, callback: (DetokenizeResult<Float>) -> Unit) {
-        performDetokenization(token, Float::class.java, callback)
-    }
-
-    /**
-     * Detokenizes a token and returns the result as Double
-     * @param token The token to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun deTokenizeAsDouble(token: String, callback: (DetokenizeResult<Double>) -> Unit) {
-        performDetokenization(token, Double::class.java, callback)
-    }
-
-    /**
-     * Detokenizes a token and returns the result as Boolean
-     * @param token The token to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun deTokenizeAsBoolean(token: String, callback: (DetokenizeResult<Boolean>) -> Unit) {
-        performDetokenization(token, Boolean::class.java, callback)
     }
 
     // ========================================
@@ -247,72 +181,6 @@ class ZeroPiiSDK private constructor(
     }
 
     // ========================================
-    // BATCH DETOKENIZATION METHODS (Type-Specific)
-    // ========================================
-
-    /**
-     * Detokenizes multiple tokens and returns the results as String values
-     * @param tokens The list of tokens to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun batchDeTokenizeAsString(tokens: List<String>, callback: (BatchDetokenizeResult<String>) -> Unit) {
-        performBatchDetokenization(tokens, String::class.java, callback)
-    }
-
-    /**
-     * Detokenizes multiple tokens and returns the results as Int values
-     * @param tokens The list of tokens to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun batchDeTokenizeAsInt(tokens: List<String>, callback: (BatchDetokenizeResult<Int>) -> Unit) {
-        performBatchDetokenization(tokens, Int::class.java, callback)
-    }
-
-    /**
-     * Detokenizes multiple tokens and returns the results as Long values
-     * @param tokens The list of tokens to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun batchDeTokenizeAsLong(tokens: List<String>, callback: (BatchDetokenizeResult<Long>) -> Unit) {
-        performBatchDetokenization(tokens, Long::class.java, callback)
-    }
-
-    /**
-     * Detokenizes multiple tokens and returns the results as Float values
-     * @param tokens The list of tokens to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun batchDeTokenizeAsFloat(tokens: List<String>, callback: (BatchDetokenizeResult<Float>) -> Unit) {
-        performBatchDetokenization(tokens, Float::class.java, callback)
-    }
-
-    /**
-     * Detokenizes multiple tokens and returns the results as Double values
-     * @param tokens The list of tokens to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun batchDeTokenizeAsDouble(tokens: List<String>, callback: (BatchDetokenizeResult<Double>) -> Unit) {
-        performBatchDetokenization(tokens, Double::class.java, callback)
-    }
-
-    /**
-     * Detokenizes multiple tokens and returns the results as Boolean values
-     * @param tokens The list of tokens to detokenize
-     * @param callback The callback to receive the result
-     */
-    fun batchDeTokenizeAsBoolean(tokens: List<String>, callback: (BatchDetokenizeResult<Boolean>) -> Unit) {
-        performBatchDetokenization(tokens, Boolean::class.java, callback)
-    }
-
-    /**
-     * Clears the token cache.
-     */
-    fun clearCache() {
-        logger.d("Clearing token cache")
-        tokenCache.clear()
-    }
-
-    // ========================================
     // PRIVATE IMPLEMENTATION METHODS
     // ========================================
 
@@ -356,49 +224,6 @@ class ZeroPiiSDK private constructor(
                 logger.e("Error tokenizing ${type.simpleName} value", e)
                 withContext(Dispatchers.Main) {
                     callback(TokenizeResult.Error(e.message ?: "Unknown error occurred"))
-                }
-            }
-        }
-    }
-
-    /**
-     * Internal method to perform detokenization with type conversion
-     */
-    private fun <T> performDetokenization(
-        token: String,
-        type: Class<T>,
-        callback: (DetokenizeResult<T>) -> Unit
-    ) {
-        sdkScope.launch {
-            try {
-                logger.d("Detokenizing token to ${type.simpleName}")
-
-                val converter = TypeConverterRegistry.getConverter(type)
-                if (converter == null) {
-                    withContext(Dispatchers.Main) {
-                        callback(DetokenizeResult.Error("Unsupported type: ${type.simpleName}"))
-                    }
-                    return@launch
-                }
-
-                // Call repository to get string result
-                val repoResult = if (enableEncryption) {
-                    tokenRepository.detokenizeWithEncryptionOverTransit(token)
-                } else {
-                    tokenRepository.detokenize(token)
-                }
-
-                // Convert repository result (string) to public result (typed) using converter
-                val publicResult = repoResult.toPublicResult(converter)
-                logger.d("de-tokenization result: ${type.simpleName} value: $publicResult")
-
-                withContext(Dispatchers.Main) {
-                    callback(publicResult)
-                }
-            } catch (e: Exception) {
-                logger.e("Error detokenizing token to ${type.simpleName}", e)
-                withContext(Dispatchers.Main) {
-                    callback(DetokenizeResult.Error(e.message ?: "Unknown error occurred"))
                 }
             }
         }
@@ -457,56 +282,6 @@ class ZeroPiiSDK private constructor(
         }
     }
 
-    /**
-     * Internal method to perform batch detokenization
-     */
-    private fun <T> performBatchDetokenization(
-        tokens: List<String>,
-        type: Class<T>,
-        callback: (BatchDetokenizeResult<T>) -> Unit
-    ) {
-        sdkScope.launch {
-            try {
-                if (tokens.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        callback(BatchDetokenizeResult.Error("Batch detokenize request contains no tokens"))
-                    }
-                    return@launch
-                }
-
-                logger.d("Batch detokenizing ${tokens.size} tokens to ${type.simpleName}")
-
-                val converter = TypeConverterRegistry.getConverter(type)
-                if (converter == null) {
-                    withContext(Dispatchers.Main) {
-                        callback(BatchDetokenizeResult.Error("Unsupported type: ${type.simpleName}"))
-                    }
-                    return@launch
-                }
-
-                // Call repository to get string results
-                val repoResult = if (enableEncryption) {
-                    tokenRepository.batchDetokenizeWithEncryptionOverTransit(tokens)
-                } else {
-                    tokenRepository.batchDetokenize(tokens)
-                }
-
-                // Convert repository result (strings) to public result (typed) using converter
-                val publicResult = repoResult.toPublicResult(converter)
-                logger.d("batch de-tokenization result: ${type.simpleName} tokens: $publicResult")
-
-                withContext(Dispatchers.Main) {
-                    callback(publicResult)
-                }
-            } catch (e: Exception) {
-                logger.e("Error batch detokenizing tokens to ${type.simpleName}", e)
-                withContext(Dispatchers.Main) {
-                    callback(BatchDetokenizeResult.Error(e.message ?: "Unknown error occurred"))
-                }
-            }
-        }
-    }
-
     companion object {
         @Volatile
         private var INSTANCE: ZeroPiiSDK? = null
@@ -522,7 +297,6 @@ class ZeroPiiSDK private constructor(
                     tokenProvider,
                     apiUrl,
                     enableEncryption = true,
-                    enableCache = true,
                     logLevel = logLevel.intValue
                 ).also { INSTANCE = it }
             }

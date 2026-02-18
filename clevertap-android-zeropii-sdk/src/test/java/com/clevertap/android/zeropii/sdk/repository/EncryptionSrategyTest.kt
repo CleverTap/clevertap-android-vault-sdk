@@ -6,14 +6,9 @@ import com.clevertap.android.zeropii.sdk.encryption.DecryptionSuccess
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionFailure
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionSuccess
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeRequest
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeResponse
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeSummary
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeRequest
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeResponse
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeSummary
-import com.clevertap.android.zeropii.sdk.model.DetokenizeRequest
-import com.clevertap.android.zeropii.sdk.model.DetokenizeResponse
 import com.clevertap.android.zeropii.sdk.model.EncryptedRequest
 import com.clevertap.android.zeropii.sdk.model.EncryptedResponse
 import com.clevertap.android.zeropii.sdk.model.TokenizeRequest
@@ -93,26 +88,6 @@ class NoEncryptionStrategyTest(
     }
 
     @Test
-    fun shouldMakeNonEncryptedDetokenizeCall() = runBlocking {
-        // Arrange
-        val expectedResponse = Response.success(
-            DetokenizeResponse("decrypted-value", true, "string")
-        )
-        coEvery {
-            mockTokenizationApi.detokenize("Bearer $accessToken", DetokenizeRequest(inputValue))
-        } returns expectedResponse
-
-        // Act
-        val result = noEncryptionStrategy.detokenize(mockTokenizationApi, accessToken, inputValue)
-
-        // Assert
-        assertEquals("Should return expected response", expectedResponse, result)
-        coVerify(exactly = 1) {
-            mockTokenizationApi.detokenize("Bearer $accessToken", DetokenizeRequest(inputValue))
-        }
-    }
-
-    @Test
     fun shouldMakeNonEncryptedBatchTokenizeCall() = runBlocking {
         // Arrange
         val values = listOf(inputValue, "additional-value")
@@ -133,36 +108,6 @@ class NoEncryptionStrategyTest(
         assertEquals("Should return expected response", expectedResponse, result)
         coVerify(exactly = 1) {
             mockTokenizationApi.batchTokenize("Bearer $accessToken", BatchTokenizeRequest(values))
-        }
-    }
-
-    @Test
-    fun shouldMakeNonEncryptedBatchDetokenizeCall() = runBlocking {
-        // Arrange
-        val tokens = listOf(inputValue, "additional-token")
-        val expectedResponse = Response.success(
-            BatchDetokenizeResponse(
-                results = emptyList(),
-                summary = BatchDetokenizeSummary(2, 2, 0)
-            )
-        )
-        coEvery {
-            mockTokenizationApi.batchDetokenize(
-                "Bearer $accessToken",
-                BatchDetokenizeRequest(tokens)
-            )
-        } returns expectedResponse
-
-        // Act
-        val result = noEncryptionStrategy.batchDetokenize(mockTokenizationApi, accessToken, tokens)
-
-        // Assert
-        assertEquals("Should return expected response", expectedResponse, result)
-        coVerify(exactly = 1) {
-            mockTokenizationApi.batchDetokenize(
-                "Bearer $accessToken",
-                BatchDetokenizeRequest(tokens)
-            )
         }
     }
 }
@@ -221,35 +166,6 @@ class WithEncryptionStrategyTest {
     }
 
     @Test
-    fun shouldDetokenizeWithEncryptionSuccess() = runTest {
-        // Arrange
-        val testToken = "test-token-456"
-        val encryptedRequest = EncryptedRequest("encrypted-payload", "session-key", "iv")
-        val encryptedResponse = EncryptedResponse("encrypted-response", "response-iv")
-        val expectedResponse = Response.success(encryptedResponse)
-        val detokenizeRequestJson = gson.toJson(DetokenizeRequest(testToken))
-
-        every { mockEncryptionManager.isEnabled() } returns true
-        every {
-            mockEncryptionManager.encrypt(detokenizeRequestJson)
-        } returns EncryptionSuccess("encrypted-payload", "session-key", "iv")
-
-        coEvery {
-            mockApi.detokenizeEncrypted(bearerToken, true, encryptedRequest)
-        } returns expectedResponse
-
-        // Act
-        val result = strategy.detokenize(mockApi, accessToken, testToken)
-
-        // Assert
-        assertEquals("Should return expected response", expectedResponse, result)
-        verify(exactly = 1) { mockEncryptionManager.encrypt(detokenizeRequestJson) }
-        coVerify(exactly = 1) {
-            mockApi.detokenizeEncrypted(bearerToken, true, encryptedRequest)
-        }
-    }
-
-    @Test
     fun shouldBatchTokenizeWithEncryptionSuccess() = runTest {
         // Arrange
         val testValues = listOf("value1", "value2", "value3")
@@ -277,35 +193,6 @@ class WithEncryptionStrategyTest {
             mockApi.batchTokenizeEncrypted(bearerToken, true, encryptedRequest)
         }
     }
-
-    @Test
-    fun shouldBatchDetokenizeWithEncryptionSuccess() = runTest {
-        // Arrange
-        val testTokens = listOf("token1", "token2", "token3")
-        val encryptedRequest = EncryptedRequest("encrypted-payload", "session-key", "iv")
-        val encryptedResponse = EncryptedResponse("encrypted-response", "response-iv")
-        val expectedResponse = Response.success(encryptedResponse)
-        val batchRequestJson = gson.toJson(BatchDetokenizeRequest(testTokens))
-
-        every { mockEncryptionManager.isEnabled() } returns true
-        every {
-            mockEncryptionManager.encrypt(batchRequestJson)
-        } returns EncryptionSuccess("encrypted-payload", "session-key", "iv")
-
-        coEvery {
-            mockApi.batchDetokenizeEncrypted(bearerToken, true, encryptedRequest)
-        } returns expectedResponse
-
-        // Act
-        val result = strategy.batchDetokenize(mockApi, accessToken, testTokens)
-
-        // Assert
-        assertEquals("Should return expected response", expectedResponse, result)
-        verify(exactly = 1) { mockEncryptionManager.encrypt(batchRequestJson) }
-        coVerify(exactly = 1) {
-            mockApi.batchDetokenizeEncrypted(bearerToken, true, encryptedRequest)
-        }
-    }
 }
 
 // ====================================
@@ -330,9 +217,7 @@ class WithEncryptionStrategyFallbackLevel1Test(
         fun data(): Collection<Array<Any>> {
             return listOf(
                 arrayOf("tokenize", "Single tokenization"),
-                arrayOf("detokenize", "Single detokenization"),
-                arrayOf("batchTokenize", "Batch tokenization"),
-                arrayOf("batchDetokenize", "Batch detokenization")
+                arrayOf("batchTokenize", "Batch tokenization")
             )
         }
     }
@@ -408,18 +293,10 @@ class WithEncryptionStrategyFallbackLevel1Test(
                 )
             )
 
-            "detokenize" -> Response.success(DetokenizeResponse("fallback-value", true, "string"))
             "batchTokenize" -> Response.success(
                 BatchTokenizeResponse(
                     emptyList(),
                     BatchTokenizeSummary(0, 0, 0)
-                )
-            )
-
-            "batchDetokenize" -> Response.success(
-                BatchDetokenizeResponse(
-                    emptyList(),
-                    BatchDetokenizeSummary(0, 0, 0)
                 )
             )
 
@@ -433,20 +310,8 @@ class WithEncryptionStrategyFallbackLevel1Test(
                 mockFallbackStrategy.tokenize(mockApi, accessToken, "test-value")
             } returns response
 
-            "detokenize" -> coEvery {
-                mockFallbackStrategy.detokenize(mockApi, accessToken, "test-token")
-            } returns response
-
             "batchTokenize" -> coEvery {
                 mockFallbackStrategy.batchTokenize(mockApi, accessToken, listOf("value1", "value2"))
-            } returns response
-
-            "batchDetokenize" -> coEvery {
-                mockFallbackStrategy.batchDetokenize(
-                    mockApi,
-                    accessToken,
-                    listOf("token1", "token2")
-                )
             } returns response
         }
     }
@@ -457,16 +322,8 @@ class WithEncryptionStrategyFallbackLevel1Test(
                 mockApi.tokenizeEncrypted(any(), any(), any())
             } returns response
 
-            "detokenize" -> coEvery {
-                mockApi.detokenizeEncrypted(any(), any(), any())
-            } returns response
-
             "batchTokenize" -> coEvery {
                 mockApi.batchTokenizeEncrypted(any(), any(), any())
-            } returns response
-
-            "batchDetokenize" -> coEvery {
-                mockApi.batchDetokenizeEncrypted(any(), any(), any())
             } returns response
         }
     }
@@ -474,17 +331,10 @@ class WithEncryptionStrategyFallbackLevel1Test(
     private suspend fun executeOperation(): Response<*> {
         return when (operationType) {
             "tokenize" -> strategy.tokenize(mockApi, accessToken, "test-value")
-            "detokenize" -> strategy.detokenize(mockApi, accessToken, "test-token")
             "batchTokenize" -> strategy.batchTokenize(
                 mockApi,
                 accessToken,
                 listOf("value1", "value2")
-            )
-
-            "batchDetokenize" -> strategy.batchDetokenize(
-                mockApi,
-                accessToken,
-                listOf("token1", "token2")
             )
 
             else -> throw IllegalArgumentException("Unknown operation type: $operationType")
@@ -497,20 +347,8 @@ class WithEncryptionStrategyFallbackLevel1Test(
                 mockFallbackStrategy.tokenize(mockApi, accessToken, "test-value")
             }
 
-            "detokenize" -> coVerify(exactly = 1) {
-                mockFallbackStrategy.detokenize(mockApi, accessToken, "test-token")
-            }
-
             "batchTokenize" -> coVerify(exactly = 1) {
                 mockFallbackStrategy.batchTokenize(mockApi, accessToken, listOf("value1", "value2"))
-            }
-
-            "batchDetokenize" -> coVerify(exactly = 1) {
-                mockFallbackStrategy.batchDetokenize(
-                    mockApi,
-                    accessToken,
-                    listOf("token1", "token2")
-                )
             }
         }
     }
@@ -521,20 +359,8 @@ class WithEncryptionStrategyFallbackLevel1Test(
                 mockFallbackStrategy.tokenize(mockApi, accessToken, "test-value")
             }
 
-            "detokenize" -> coVerify(atLeast = times) {
-                mockFallbackStrategy.detokenize(mockApi, accessToken, "test-token")
-            }
-
             "batchTokenize" -> coVerify(atLeast = times) {
                 mockFallbackStrategy.batchTokenize(mockApi, accessToken, listOf("value1", "value2"))
-            }
-
-            "batchDetokenize" -> coVerify(atLeast = times) {
-                mockFallbackStrategy.batchDetokenize(
-                    mockApi,
-                    accessToken,
-                    listOf("token1", "token2")
-                )
             }
         }
     }
@@ -562,9 +388,7 @@ class WithEncryptionStrategyFallbackLevel2Test(
         fun data(): Collection<Array<Any>> {
             return listOf(
                 arrayOf("tokenize", "Single tokenization"),
-                arrayOf("detokenize", "Single detokenization"),
-                arrayOf("batchTokenize", "Batch tokenization"),
-                arrayOf("batchDetokenize", "Batch detokenization")
+                arrayOf("batchTokenize", "Batch tokenization")
             )
         }
     }
@@ -611,18 +435,10 @@ class WithEncryptionStrategyFallbackLevel2Test(
                 )
             )
 
-            "detokenize" -> Response.success(DetokenizeResponse("fallback-value", true, "string"))
             "batchTokenize" -> Response.success(
                 BatchTokenizeResponse(
                     emptyList(),
                     BatchTokenizeSummary(0, 0, 0)
-                )
-            )
-
-            "batchDetokenize" -> Response.success(
-                BatchDetokenizeResponse(
-                    emptyList(),
-                    BatchDetokenizeSummary(0, 0, 0)
                 )
             )
 
@@ -636,20 +452,8 @@ class WithEncryptionStrategyFallbackLevel2Test(
                 mockFallbackStrategy.tokenize(mockApi, accessToken, "test-value")
             } returns response
 
-            "detokenize" -> coEvery {
-                mockFallbackStrategy.detokenize(mockApi, accessToken, "test-token")
-            } returns response
-
             "batchTokenize" -> coEvery {
                 mockFallbackStrategy.batchTokenize(mockApi, accessToken, listOf("value1", "value2"))
-            } returns response
-
-            "batchDetokenize" -> coEvery {
-                mockFallbackStrategy.batchDetokenize(
-                    mockApi,
-                    accessToken,
-                    listOf("token1", "token2")
-                )
             } returns response
         }
     }
@@ -657,17 +461,10 @@ class WithEncryptionStrategyFallbackLevel2Test(
     private suspend fun executeOperation(): Response<*> {
         return when (operationType) {
             "tokenize" -> strategy.tokenize(mockApi, accessToken, "test-value")
-            "detokenize" -> strategy.detokenize(mockApi, accessToken, "test-token")
             "batchTokenize" -> strategy.batchTokenize(
                 mockApi,
                 accessToken,
                 listOf("value1", "value2")
-            )
-
-            "batchDetokenize" -> strategy.batchDetokenize(
-                mockApi,
-                accessToken,
-                listOf("token1", "token2")
             )
 
             else -> throw IllegalArgumentException("Unknown operation type: $operationType")
@@ -680,20 +477,8 @@ class WithEncryptionStrategyFallbackLevel2Test(
                 mockFallbackStrategy.tokenize(mockApi, accessToken, "test-value")
             }
 
-            "detokenize" -> coVerify(exactly = 1) {
-                mockFallbackStrategy.detokenize(mockApi, accessToken, "test-token")
-            }
-
             "batchTokenize" -> coVerify(exactly = 1) {
                 mockFallbackStrategy.batchTokenize(mockApi, accessToken, listOf("value1", "value2"))
-            }
-
-            "batchDetokenize" -> coVerify(exactly = 1) {
-                mockFallbackStrategy.batchDetokenize(
-                    mockApi,
-                    accessToken,
-                    listOf("token1", "token2")
-                )
             }
         }
     }
@@ -701,24 +486,8 @@ class WithEncryptionStrategyFallbackLevel2Test(
     private fun verifyNoEncryptedApiCalled() {
         when (operationType) {
             "tokenize" -> coVerify(exactly = 0) { mockApi.tokenizeEncrypted(any(), any(), any()) }
-            "detokenize" -> coVerify(exactly = 0) {
-                mockApi.detokenizeEncrypted(
-                    any(),
-                    any(),
-                    any()
-                )
-            }
-
             "batchTokenize" -> coVerify(exactly = 0) {
                 mockApi.batchTokenizeEncrypted(
-                    any(),
-                    any(),
-                    any()
-                )
-            }
-
-            "batchDetokenize" -> coVerify(exactly = 0) {
-                mockApi.batchDetokenizeEncrypted(
                     any(),
                     any(),
                     any()
@@ -751,7 +520,7 @@ class WithEncryptionStrategyFallbackLevel3Test(
         @JvmStatic
         @Parameterized.Parameters(name = "Should handle {0} with: {3}")
         fun data(): Collection<Array<Any>> {
-            val operations = listOf("tokenize", "detokenize", "batchTokenize", "batchDetokenize")
+            val operations = listOf("tokenize", "batchTokenize")
             val errorScenarios = listOf(
                 arrayOf(419, "response", "419 error code in response"),
                 arrayOf(419, "exception", "419 HttpException"),
@@ -863,18 +632,10 @@ class WithEncryptionStrategyFallbackLevel3Test(
                 )
             )
 
-            "detokenize" -> Response.success(DetokenizeResponse("fallback-value", true, "string"))
             "batchTokenize" -> Response.success(
                 BatchTokenizeResponse(
                     emptyList(),
                     BatchTokenizeSummary(0, 0, 0)
-                )
-            )
-
-            "batchDetokenize" -> Response.success(
-                BatchDetokenizeResponse(
-                    emptyList(),
-                    BatchDetokenizeSummary(0, 0, 0)
                 )
             )
 
@@ -888,16 +649,8 @@ class WithEncryptionStrategyFallbackLevel3Test(
                 mockFallbackStrategy.tokenize(mockApi, accessToken, any())
             } returns response
 
-            "detokenize" -> coEvery {
-                mockFallbackStrategy.detokenize(mockApi, accessToken, any())
-            } returns response
-
             "batchTokenize" -> coEvery {
                 mockFallbackStrategy.batchTokenize(mockApi, accessToken, any())
-            } returns response
-
-            "batchDetokenize" -> coEvery {
-                mockFallbackStrategy.batchDetokenize(mockApi, accessToken, any())
             } returns response
         }
     }
@@ -908,16 +661,8 @@ class WithEncryptionStrategyFallbackLevel3Test(
                 mockApi.tokenizeEncrypted(bearerToken, true, any())
             } returns response
 
-            "detokenize" -> coEvery {
-                mockApi.detokenizeEncrypted(bearerToken, true, any())
-            } returns response
-
             "batchTokenize" -> coEvery {
                 mockApi.batchTokenizeEncrypted(bearerToken, true, any())
-            } returns response
-
-            "batchDetokenize" -> coEvery {
-                mockApi.batchDetokenizeEncrypted(bearerToken, true, any())
             } returns response
         }
     }
@@ -928,16 +673,8 @@ class WithEncryptionStrategyFallbackLevel3Test(
                 mockApi.tokenizeEncrypted(bearerToken, true, any())
             } throws exception
 
-            "detokenize" -> coEvery {
-                mockApi.detokenizeEncrypted(bearerToken, true, any())
-            } throws exception
-
             "batchTokenize" -> coEvery {
                 mockApi.batchTokenizeEncrypted(bearerToken, true, any())
-            } throws exception
-
-            "batchDetokenize" -> coEvery {
-                mockApi.batchDetokenizeEncrypted(bearerToken, true, any())
             } throws exception
         }
     }
@@ -945,17 +682,10 @@ class WithEncryptionStrategyFallbackLevel3Test(
     private suspend fun executeOperation(): Response<*> {
         return when (operationType) {
             "tokenize" -> strategy.tokenize(mockApi, accessToken, "test-value")
-            "detokenize" -> strategy.detokenize(mockApi, accessToken, "test-token")
             "batchTokenize" -> strategy.batchTokenize(
                 mockApi,
                 accessToken,
                 listOf("value1", "value2")
-            )
-
-            "batchDetokenize" -> strategy.batchDetokenize(
-                mockApi,
-                accessToken,
-                listOf("token1", "token2")
             )
 
             else -> throw IllegalArgumentException("Unknown operation type: $operationType")
@@ -968,16 +698,8 @@ class WithEncryptionStrategyFallbackLevel3Test(
                 mockApi.tokenizeEncrypted(bearerToken, true, any())
             }
 
-            "detokenize" -> coVerify(exactly = 1) {
-                mockApi.detokenizeEncrypted(bearerToken, true, any())
-            }
-
             "batchTokenize" -> coVerify(exactly = 1) {
                 mockApi.batchTokenizeEncrypted(bearerToken, true, any())
-            }
-
-            "batchDetokenize" -> coVerify(exactly = 1) {
-                mockApi.batchDetokenizeEncrypted(bearerToken, true, any())
             }
         }
     }
@@ -988,25 +710,15 @@ class WithEncryptionStrategyFallbackLevel3Test(
                 mockFallbackStrategy.tokenize(mockApi, accessToken, any())
             }
 
-            "detokenize" -> coVerify(exactly = 1) {
-                mockFallbackStrategy.detokenize(mockApi, accessToken, any())
-            }
-
             "batchTokenize" -> coVerify(exactly = 1) {
                 mockFallbackStrategy.batchTokenize(mockApi, accessToken, any())
-            }
-
-            "batchDetokenize" -> coVerify(exactly = 1) {
-                mockFallbackStrategy.batchDetokenize(mockApi, accessToken, any())
             }
         }
     }
 
     private fun verifyNoFallbackCalled() {
         coVerify(exactly = 0) { mockFallbackStrategy.tokenize(any(), any(), any()) }
-        coVerify(exactly = 0) { mockFallbackStrategy.detokenize(any(), any(), any()) }
         coVerify(exactly = 0) { mockFallbackStrategy.batchTokenize(any(), any(), any()) }
-        coVerify(exactly = 0) { mockFallbackStrategy.batchDetokenize(any(), any(), any()) }
     }
 }
 
