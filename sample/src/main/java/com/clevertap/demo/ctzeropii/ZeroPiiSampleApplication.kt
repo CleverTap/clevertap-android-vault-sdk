@@ -2,9 +2,8 @@ package com.clevertap.demo.ctzeropii
 
 import android.app.Application
 import com.clevertap.android.zeropii.sdk.ZeroPiiSDK
-import com.clevertap.android.zeropii.sdk.auth.AccessTokenCallback
-import com.clevertap.android.zeropii.sdk.auth.AccessTokenProvider
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
+import com.clevertap.demo.ctzeropii.auth.OAuthAccessTokenProvider
 
 class ZeroPiiSampleApplication : Application() {
 
@@ -14,13 +13,12 @@ class ZeroPiiSampleApplication : Application() {
         // Initialize the ZeroPii SDK
         try {
             ZeroPiiSDK.initialize(
-                tokenProvider = object : AccessTokenProvider {
-                    override fun fetchToken(callback: AccessTokenCallback) {
-                        // TODO: Replace with real token provider
-                        callback.onFailure(Exception("Token provider not configured"))
-                    }
-                },
-                apiUrl = "",
+                tokenProvider = OAuthAccessTokenProvider(
+                    authUrl      = BuildConfig.OAUTH_URL,
+                    clientId     = BuildConfig.OAUTH_CLIENT_ID,
+                    clientSecret = BuildConfig.OAUTH_CLIENT_SECRET
+                ),
+                apiUrl   = BuildConfig.API_URL,
                 logLevel = ZeroPiiLogger.LogLevel.VERBOSE
             )
 
