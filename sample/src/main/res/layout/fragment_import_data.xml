@@ -132,7 +132,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Use tokens from previous operations for detokenization testing"
+                    android:text="Use tokens from previous tokenization operations"
                     android:textSize="13sp"
                     android:textColor="@color/material_dynamic_neutral50"
                     android:layout_marginBottom="12dp" />
@@ -273,7 +273,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="📂 File Import:\n• Supports CSV, TXT, JSON formats\n• Auto-detects separators (comma, line, space)\n• Validates data types automatically\n\n📋 Clipboard Import:\n• Paste from spreadsheets or text editors\n• Smart format detection\n• Handles various data layouts\n\n🔄 Token Reuse:\n• Use tokens from previous tokenization results\n• Perfect for detokenization testing\n• Automatically filters by data type"
+                    android:text="📂 File Import:\n• Supports CSV, TXT, JSON formats\n• Auto-detects separators (comma, line, space)\n• Validates data types automatically\n\n📋 Clipboard Import:\n• Paste from spreadsheets or text editors\n• Smart format detection\n• Handles various data layouts\n\n🔄 Token Reuse:\n• Use tokens from previous tokenization results\n• Automatically filters by data type"
                     android:textSize="13sp"
                     android:textColor="@color/material_dynamic_neutral40"
                     android:lineSpacingMultiplier="1.2" />

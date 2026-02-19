@@ -1,7 +1,5 @@
 package com.clevertap.demo.ctzeropii.model
 
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenItem
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeSummary
 import com.clevertap.android.zeropii.sdk.model.BatchTokenItem
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeSummary
 import com.clevertap.demo.ctzeropii.MainActivity
@@ -22,26 +20,12 @@ sealed class TokenDisplayItem {
         val inputDataType: MainActivity.DataType
     ) : TokenDisplayItem()
 
-    data class SingleDetokenize(
-        val token: String,
-        val originalValue: String,
-        val exists: Boolean,
-        val dataType: String,
-        val outputDataType: MainActivity.DataType
-    ) : TokenDisplayItem()
-
     data class BatchTokenize(
         val results: List<BatchTokenItem>,
         val summary: BatchTokenizeSummary,
         val inputDataType: MainActivity.DataType,
         val isImported: Boolean = false,
         val fileName: String? = null
-    ) : TokenDisplayItem()
-
-    data class BatchDetokenize(
-        val results: List<BatchDetokenItem<String>>, // Using String for display purposes
-        val summary: BatchDetokenizeSummary,
-        val outputDataType: MainActivity.DataType
     ) : TokenDisplayItem()
 
     data class FileImported(
@@ -58,10 +42,6 @@ sealed class TokenDisplayItem {
         val title: String,
         val message: String,
         val timestamp: Long = System.currentTimeMillis()
-    ) : TokenDisplayItem()
-
-    data class CacheCleared(
-        val timestamp: Long
     ) : TokenDisplayItem()
 
     data class TypeInfo(
@@ -91,19 +71,6 @@ sealed class TokenDisplayItem {
         val timestamp: Long = System.currentTimeMillis()
     ) : TokenDisplayItem()
 
-    /**
-     * Batch operation statistics
-     */
-    data class BatchStatistics(
-        val operationType: String,
-        val dataType: MainActivity.DataType,
-        val totalItems: Int,
-        val successfulItems: Int,
-        val failedItems: Int,
-        val avgResponseTime: Long,
-        val cacheHitRate: Float,
-        val timestamp: Long = System.currentTimeMillis()
-    ) : TokenDisplayItem()
 }
 
 /**
@@ -113,20 +80,16 @@ fun TokenDisplayItem.getDisplayTitle(): String {
     return when (this) {
         is TokenDisplayItem.Loading -> "⏳ Loading"
         is TokenDisplayItem.SingleTokenize -> "${getDataTypeIcon(inputDataType)} Single Tokenize (${inputDataType.displayName})"
-        is TokenDisplayItem.SingleDetokenize -> "${getDataTypeIcon(outputDataType)} Single Detokenize (${outputDataType.displayName})"
         is TokenDisplayItem.BatchTokenize -> {
             val sourceIcon = if (isImported) "📁" else "${getDataTypeIcon(inputDataType)}"
             val sourceText = if (isImported) "Imported Batch" else "Sample Batch"
             "$sourceIcon $sourceText Tokenize (${inputDataType.displayName})"
         }
-        is TokenDisplayItem.BatchDetokenize -> "${getDataTypeIcon(outputDataType)} Batch Detokenize (${outputDataType.displayName})"
         is TokenDisplayItem.FileImported -> "📂 File Imported"
         is TokenDisplayItem.Error -> "❌ $title"
-        is TokenDisplayItem.CacheCleared -> "🗑️ Cache Cleared"
         is TokenDisplayItem.TypeInfo -> "${info.icon} ${info.name} Type Info"
         is TokenDisplayItem.PerformanceTest -> "${if (success) "⚡" else "⚠️"} $testType Performance"
         is TokenDisplayItem.ComparisonResult -> "🔍 $title"
-        is TokenDisplayItem.BatchStatistics -> "📊 $operationType Statistics"
     }
 }
 
@@ -140,14 +103,6 @@ fun TokenDisplayItem.getDisplayContent(): String {
             append("Status: ${if (exists) "Existing" else "New"}\n")
             append("Data Type: $dataType\n")
             append("Input Type: ${inputDataType.displayName}")
-        }
-
-        is TokenDisplayItem.SingleDetokenize -> buildString {
-            append("Token: $token\n")
-            append("Value: $originalValue\n")
-            append("Exists: $exists\n")
-            append("Data Type: $dataType\n")
-            append("Output Type: ${outputDataType.displayName}")
         }
 
         is TokenDisplayItem.BatchTokenize -> buildString {
@@ -165,21 +120,6 @@ fun TokenDisplayItem.getDisplayContent(): String {
             append("\nResults:\n")
             results.take(3).forEach { result ->
                 append("• ${result.originalValue} → ${result.token}\n")
-            }
-            if (results.size > 3) {
-                append("... and ${results.size - 3} more")
-            }
-        }
-
-        is TokenDisplayItem.BatchDetokenize -> buildString {
-            append("Summary:\n")
-            append("• Processed: ${summary.processedCount}\n")
-            append("• Found: ${summary.foundCount}\n")
-            append("• Not Found: ${summary.notFoundCount}\n")
-            append("• Output Type: ${outputDataType.displayName}\n\n")
-            append("Results:\n")
-            results.take(3).forEach { result ->
-                append("• ${result.token} → ${result.value ?: "null"}\n")
             }
             if (results.size > 3) {
                 append("... and ${results.size - 3} more")
@@ -206,8 +146,6 @@ fun TokenDisplayItem.getDisplayContent(): String {
 
         is TokenDisplayItem.Error -> message
 
-        is TokenDisplayItem.CacheCleared -> "Token cache has been cleared successfully"
-
         is TokenDisplayItem.TypeInfo -> buildString {
             append("${info.description}\n\n")
             append("Examples:\n")
@@ -233,36 +171,22 @@ fun TokenDisplayItem.getDisplayContent(): String {
                 append("• $diff\n")
             }
         }
-
-        is TokenDisplayItem.BatchStatistics -> buildString {
-            append("Operation: $operationType\n")
-            append("Data Type: ${dataType.displayName}\n")
-            append("Total Items: $totalItems\n")
-            append("Successful: $successfulItems\n")
-            append("Failed: $failedItems\n")
-            append("Avg Response: ${avgResponseTime}ms\n")
-            append("Cache Hit Rate: ${(cacheHitRate * 100).toInt()}%")
-        }
     }
 }
 
 fun TokenDisplayItem.getBackgroundColor(): Int {
     return when (this) {
-        is TokenDisplayItem.Loading -> 0xFFFFF3C4.toInt() // Light yellow
-        is TokenDisplayItem.SingleTokenize -> 0xFFE8F5E8.toInt() // Light green
-        is TokenDisplayItem.SingleDetokenize -> 0xFFE3F2FD.toInt() // Light blue
+        is TokenDisplayItem.Loading -> 0xFFFFF3C4.toInt()
+        is TokenDisplayItem.SingleTokenize -> 0xFFE8F5E8.toInt()
         is TokenDisplayItem.BatchTokenize -> {
-            if (isImported) 0xFFE8F5E8.toInt() // Light green for imported
-            else 0xFFF3E5F5.toInt() // Light purple for sample
+            if (isImported) 0xFFE8F5E8.toInt()
+            else 0xFFF3E5F5.toInt()
         }
-        is TokenDisplayItem.BatchDetokenize -> 0xFFE0F2F1.toInt() // Light teal
-        is TokenDisplayItem.FileImported -> 0xFFE3F2FD.toInt() // Light blue
-        is TokenDisplayItem.Error -> 0xFFFFEBEE.toInt() // Light red
-        is TokenDisplayItem.CacheCleared -> 0xFFFFF9C4.toInt() // Light amber
-        is TokenDisplayItem.TypeInfo -> 0xFFE8EAF6.toInt() // Light indigo
-        is TokenDisplayItem.PerformanceTest -> if (success) 0xFFE8F5E8.toInt() else 0xFFFFF3E0.toInt() // Green or orange
-        is TokenDisplayItem.ComparisonResult -> 0xFFF1F8E9.toInt() // Light lime
-        is TokenDisplayItem.BatchStatistics -> 0xFFE3F2FD.toInt() // Light cyan
+        is TokenDisplayItem.FileImported -> 0xFFE3F2FD.toInt()
+        is TokenDisplayItem.Error -> 0xFFFFEBEE.toInt()
+        is TokenDisplayItem.TypeInfo -> 0xFFE8EAF6.toInt()
+        is TokenDisplayItem.PerformanceTest -> if (success) 0xFFE8F5E8.toInt() else 0xFFFFF3E0.toInt()
+        is TokenDisplayItem.ComparisonResult -> 0xFFF1F8E9.toInt()
     }
 }
 
