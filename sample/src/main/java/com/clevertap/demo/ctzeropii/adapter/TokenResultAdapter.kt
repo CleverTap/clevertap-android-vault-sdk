@@ -69,23 +69,18 @@ class TokenResultAdapter(
             return when (item) {
                 is TokenDisplayItem.Loading -> dateFormat.format(Date())
                 is TokenDisplayItem.SingleTokenize -> dateFormat.format(Date())
-                is TokenDisplayItem.SingleDetokenize -> dateFormat.format(Date())
                 is TokenDisplayItem.BatchTokenize -> dateFormat.format(Date())
-                is TokenDisplayItem.BatchDetokenize -> dateFormat.format(Date())
                 is TokenDisplayItem.FileImported -> dateFormat.format(Date(item.timestamp))
                 is TokenDisplayItem.Error -> longDateFormat.format(Date(item.timestamp))
-                is TokenDisplayItem.CacheCleared -> dateFormat.format(Date(item.timestamp))
                 is TokenDisplayItem.TypeInfo -> dateFormat.format(Date(item.timestamp))
                 is TokenDisplayItem.PerformanceTest -> longDateFormat.format(Date(item.timestamp))
                 is TokenDisplayItem.ComparisonResult -> dateFormat.format(Date(item.timestamp))
-                is TokenDisplayItem.BatchStatistics -> dateFormat.format(Date(item.timestamp))
             }
         }
 
         private fun handleItemClick(item: TokenDisplayItem) {
             when (item) {
                 is TokenDisplayItem.SingleTokenize -> {
-                    // Copy token to clipboard for easy detokenization testing
                     copyToClipboard("Token: ${item.token}", "Token copied!")
                     showItemSummary("Single Tokenize", """
                         ✅ Successfully tokenized ${item.inputDataType.displayName}
@@ -96,25 +91,9 @@ class TokenResultAdapter(
                     """.trimIndent())
                 }
 
-                is TokenDisplayItem.SingleDetokenize -> {
-                    // Copy original value to clipboard
-                    copyToClipboard("Value: ${item.originalValue}", "Value copied!")
-                    showItemSummary("Single Detokenize", """
-                        ✅ Successfully detokenized to ${item.outputDataType.displayName}
-                        🔑 Token: ${item.token}
-                        📝 Value: ${item.originalValue}
-                        📊 Found: ${item.exists}
-                        🎯 Type: ${item.dataType}
-                    """.trimIndent())
-                }
-
                 is TokenDisplayItem.BatchTokenize -> {
                     val sourceText = if (item.isImported) "imported from ${item.fileName}" else "sample"
                     showBatchTokenizeDetails(item, sourceText)
-                }
-
-                is TokenDisplayItem.BatchDetokenize -> {
-                    showBatchDetokenizeDetails(item)
                 }
 
                 is TokenDisplayItem.FileImported -> {
@@ -125,20 +104,12 @@ class TokenResultAdapter(
                     showErrorDetails(item)
                 }
 
-                is TokenDisplayItem.CacheCleared -> {
-                    showToast("Cache was cleared at ${dateFormat.format(Date(item.timestamp))}")
-                }
-
                 is TokenDisplayItem.PerformanceTest -> {
                     showPerformanceDetails(item)
                 }
 
                 is TokenDisplayItem.ComparisonResult -> {
                     showComparisonDetails(item)
-                }
-
-                is TokenDisplayItem.BatchStatistics -> {
-                    showStatisticsDetails(item)
                 }
 
                 else -> {
@@ -222,31 +193,6 @@ class TokenResultAdapter(
             """.trimIndent()
 
             showItemSummary("Batch Tokenize Details", details)
-        }
-
-        private fun showBatchDetokenizeDetails(item: TokenDisplayItem.BatchDetokenize) {
-            val foundRate = if (item.summary.processedCount > 0) {
-                (item.summary.foundCount.toFloat() / item.summary.processedCount * 100).toInt()
-            } else 0
-
-            val details = """
-                📊 Batch Detokenize Results
-                
-                🎯 Data Type: ${item.outputDataType.displayName}
-                
-                📈 Statistics:
-                • Total Tokens: ${item.results.size}
-                • Processed: ${item.summary.processedCount}
-                • Found Values: ${item.summary.foundCount}
-                • Not Found: ${item.summary.notFoundCount}
-                • Found Rate: $foundRate%
-                
-                🔍 Sample Results:
-                ${item.results.take(5).joinToString("\n") { "• ${it.token} → ${it.value ?: "null"}" }}
-                ${if (item.results.size > 5) "\n... and ${item.results.size - 5} more" else ""}
-            """.trimIndent()
-
-            showItemSummary("Batch Detokenize Details", details)
         }
 
         private fun showFileImportDetails(item: TokenDisplayItem.FileImported) {
@@ -337,34 +283,6 @@ class TokenResultAdapter(
             """.trimIndent()
 
             showItemSummary("Comparison Details", details)
-        }
-
-        private fun showStatisticsDetails(item: TokenDisplayItem.BatchStatistics) {
-            val successRate = if (item.totalItems > 0) {
-                (item.successfulItems.toFloat() / item.totalItems * 100).toInt()
-            } else 0
-
-            val details = """
-                📊 Batch Operation Statistics
-                
-                🎯 Operation: ${item.operationType}
-                📋 Data Type: ${item.dataType.displayName}
-                ⏰ Analysis Time: ${dateFormat.format(Date(item.timestamp))}
-                
-                📈 Performance Metrics:
-                • Total Items: ${item.totalItems}
-                • Successful: ${item.successfulItems} (${successRate}%)
-                • Failed: ${item.failedItems}
-                • Avg Response Time: ${item.avgResponseTime}ms
-                • Cache Hit Rate: ${(item.cacheHitRate * 100).toInt()}%
-                
-                💡 Insights:
-                • Batch efficiency: High
-                • Cache utilization: ${if (item.cacheHitRate > 0.5) "Excellent" else "Moderate"}
-                • Error rate: ${if (item.failedItems == 0) "None" else "Low"}
-            """.trimIndent()
-
-            showItemSummary("Statistics Details", details)
         }
 
         // ================================

@@ -10,10 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.clevertap.android.zeropii.sdk.ZeroPiiSDK
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenItem
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeResult
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeResult
-import com.clevertap.android.zeropii.sdk.model.DetokenizeResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeResult
 import com.clevertap.demo.ctzeropii.adapter.TokenResultAdapter
 import com.clevertap.demo.ctzeropii.model.SampleDataProvider
@@ -34,11 +31,9 @@ class MainActivity : AppCompatActivity() {
 
     // Single Operation Buttons
     private lateinit var tokenizeButton: MaterialButton
-    private lateinit var detokenizeButton: MaterialButton
 
     // Batch Operation Buttons
     private lateinit var batchTokenizeButton: MaterialButton
-    private lateinit var batchDetokenizeButton: MaterialButton
 
     // Sample Data Buttons
     private lateinit var sampleStringButton: MaterialButton
@@ -53,12 +48,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var clearImportButton: MaterialButton
 
     // Utility Buttons
-    private lateinit var clearCacheButton: MaterialButton
     private lateinit var clearResultsButton: MaterialButton
 
     // Status Elements
     private lateinit var chipEncryption: Chip
-    private lateinit var chipCache: Chip
     private lateinit var statusText: TextView
     private lateinit var importStatusText: TextView
 
@@ -117,9 +110,7 @@ class MainActivity : AppCompatActivity() {
         operationChipGroup = findViewById(R.id.operationChipGroup)
 
         tokenizeButton = findViewById(R.id.tokenizeButton)
-        detokenizeButton = findViewById(R.id.detokenizeButton)
         batchTokenizeButton = findViewById(R.id.batchTokenizeButton)
-        batchDetokenizeButton = findViewById(R.id.batchDetokenizeButton)
 
         sampleStringButton = findViewById(R.id.sampleStringButton)
         sampleIntButton = findViewById(R.id.sampleIntButton)
@@ -131,11 +122,9 @@ class MainActivity : AppCompatActivity() {
         importFileButton = findViewById(R.id.importFileButton)
         clearImportButton = findViewById(R.id.clearImportButton)
 
-        clearCacheButton = findViewById(R.id.clearCacheButton)
         clearResultsButton = findViewById(R.id.clearResultsButton)
 
         chipEncryption = findViewById(R.id.chipEncryption)
-        chipCache = findViewById(R.id.chipCache)
         statusText = findViewById(R.id.statusText)
         importStatusText = findViewById(R.id.importStatusText)
 
@@ -214,30 +203,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        detokenizeButton.setOnClickListener {
-            val input = inputEditText.text.toString().trim()
-            if (input.isNotEmpty()) {
-                detokenizeSingleValue(input)
-            } else {
-                showToast("Please enter a token to detokenize")
-            }
-        }
-
         // Batch operation buttons
         batchTokenizeButton.setOnClickListener {
             if (importedData.isNotEmpty()) {
                 batchTokenizeImportedValues()
             } else {
                 batchTokenizeValues()
-            }
-        }
-
-        batchDetokenizeButton.setOnClickListener {
-            if (importedData.isNotEmpty()) {
-                // For detokenization, we need tokens, not values
-                batchDeTokenizeImportedValues()
-            } else {
-                batchDetokenizeTokens()
             }
         }
 
@@ -271,9 +242,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Utility buttons
-        clearCacheButton.setOnClickListener {
-            clearCache()
-        }
         clearResultsButton.setOnClickListener {
             clearResults()
         }
@@ -465,49 +433,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    private fun batchDeTokenizeImportedValues() {
-        if (importedData.isEmpty()) {
-            showToast("No imported data available")
-            return
-        }
-        val tokens = importedData.map { it.toString() }
-        showToast("Batch de-tokenizing ${importedData.size} imported ${selectedDataType.displayName} tokens")
-        addResult(TokenDisplayItem.Loading("Batch de-tokenizing ${importedData.size} imported ${selectedDataType.displayName} tokens from $importedFileName..."))
-
-        when (selectedDataType) {
-            DataType.STRING -> {
-                zeroPiiSDK.batchDeTokenizeAsString(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.INT -> {
-                zeroPiiSDK.batchDeTokenizeAsInt(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.LONG -> {
-                zeroPiiSDK.batchDeTokenizeAsLong(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.FLOAT -> {
-                zeroPiiSDK.batchDeTokenizeAsFloat(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.DOUBLE -> {
-                zeroPiiSDK.batchDeTokenizeAsDouble(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.BOOLEAN -> {
-                zeroPiiSDK.batchDeTokenizeAsBoolean(tokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-        }
-    }
-
     private fun batchTokenizeValues() {
         val sampleData = SampleDataProvider.getBatchSampleData(selectedDataType)
 
@@ -591,139 +516,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun detokenizeSingleValue(token: String) {
-        showToast("Detokenizing as ${selectedDataType.displayName}: $token")
-        addResult(TokenDisplayItem.Loading("Detokenizing $token as ${selectedDataType.displayName}..."))
-
-        when (selectedDataType) {
-            DataType.STRING -> {
-                zeroPiiSDK.deTokenizeAsString(token) { result ->
-                    handleDetokenizeResult(token, result)
-                }
-            }
-            DataType.INT -> {
-                zeroPiiSDK.deTokenizeAsInt(token) { result ->
-                    handleDetokenizeResult(token, result)
-                }
-            }
-            DataType.LONG -> {
-                zeroPiiSDK.deTokenizeAsLong(token) { result ->
-                    handleDetokenizeResult(token, result)
-                }
-            }
-            DataType.FLOAT -> {
-                zeroPiiSDK.deTokenizeAsFloat(token) { result ->
-                    handleDetokenizeResult(token, result)
-                }
-            }
-            DataType.DOUBLE -> {
-                zeroPiiSDK.deTokenizeAsDouble(token) { result ->
-                    handleDetokenizeResult(token, result)
-                }
-            }
-            DataType.BOOLEAN -> {
-                zeroPiiSDK.deTokenizeAsBoolean(token) { result ->
-                    handleDetokenizeResult(token, result)
-                }
-            }
-        }
-    }
-
-    private fun batchDetokenizeTokens() {
-        val availableTokens = tokenResults.flatMap { item ->
-            when (item) {
-                is TokenDisplayItem.SingleTokenize -> {
-                if (isDataTypeCompatible(item.dataType, selectedDataType)) {
-                    listOf(item.token)
-                } else {
-                    emptyList()
-                }
-            }
-
-                is TokenDisplayItem.BatchTokenize -> {
-                item.results
-                    .filter { result ->
-                        isDataTypeCompatible(result.dataType, selectedDataType)
-                }
-                    .map { result -> result.token }
-            }
-
-            else -> emptyList()
-        }
-    }.distinct()
-
-        if (availableTokens.isEmpty()) {
-            showToast("No ${selectedDataType.displayName} tokens available. Please tokenize some ${selectedDataType.displayName} values first.")
-            return
-        }
-
-        showToast("Batch detokenizing ${availableTokens.size} ${selectedDataType.displayName} tokens")
-        addResult(TokenDisplayItem.Loading("Batch detokenizing ${availableTokens.size} ${selectedDataType.displayName} tokens..."))
-
-        when (selectedDataType) {
-            DataType.STRING -> {
-                zeroPiiSDK.batchDeTokenizeAsString(availableTokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.INT -> {
-                zeroPiiSDK.batchDeTokenizeAsInt(availableTokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.LONG -> {
-                zeroPiiSDK.batchDeTokenizeAsLong(availableTokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.FLOAT -> {
-                zeroPiiSDK.batchDeTokenizeAsFloat(availableTokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.DOUBLE -> {
-                zeroPiiSDK.batchDeTokenizeAsDouble(availableTokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-            DataType.BOOLEAN -> {
-                zeroPiiSDK.batchDeTokenizeAsBoolean(availableTokens) { result ->
-                    handleBatchDetokenizeResult(result)
-                }
-            }
-        }
-    }
-
-    /**
-     * Proper mapping between server data types and client data types
-     */
-    private fun isDataTypeCompatible(serverDataType: String?, clientDataType: DataType): Boolean {
-        if (serverDataType == null) return false
-
-        val serverTypeLower = serverDataType.lowercase()
-
-        return when (clientDataType) {
-            DataType.STRING -> {
-                serverTypeLower in listOf("string", "text")
-            }
-            DataType.INT -> {
-                serverTypeLower in listOf("number", "integer", "int")
-            }
-            DataType.LONG -> {
-                serverTypeLower in listOf("number", "long", "bigint")
-            }
-            DataType.FLOAT -> {
-                serverTypeLower in listOf("number", "float", "decimal")
-            }
-            DataType.DOUBLE -> {
-                serverTypeLower in listOf("number", "double", "decimal")
-            }
-            DataType.BOOLEAN -> {
-                serverTypeLower in listOf("boolean", "bool", "string")
-            }
-        }
-    }
-
     // ========================================
     // RESULT HANDLERS (Updated)
     // ========================================
@@ -745,28 +537,6 @@ class MainActivity : AppCompatActivity() {
             }
             is TokenizeResult.Error -> {
                 val item = TokenDisplayItem.Error("${selectedDataType.displayName} Tokenize Error", result.message)
-                addResult(item)
-                showToast("❌ Error: ${result.message}")
-            }
-        }
-    }
-
-    private fun <T> handleDetokenizeResult(token: String, result: DetokenizeResult<T>) {
-        removeLastLoadingItem()
-        when (result) {
-            is DetokenizeResult.Success -> {
-                val item = TokenDisplayItem.SingleDetokenize(
-                    token = token,
-                    originalValue = result.value?.toString() ?: "null",
-                    exists = result.exists,
-                    dataType = result.dataType ?: "unknown",
-                    outputDataType = selectedDataType
-                )
-                addResult(item)
-                showToast("✅ Detokenized successfully!")
-            }
-            is DetokenizeResult.Error -> {
-                val item = TokenDisplayItem.Error("${selectedDataType.displayName} Detokenize Error", result.message)
                 addResult(item)
                 showToast("❌ Error: ${result.message}")
             }
@@ -797,44 +567,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun <T> handleBatchDetokenizeResult(result: BatchDetokenizeResult<T>) {
-        removeLastLoadingItem()
-        when (result) {
-            is BatchDetokenizeResult.Success -> {
-                val item = TokenDisplayItem.BatchDetokenize(
-                    results = result.results.map { batchItem ->
-                        // Convert generic BatchDetokenItem<T> to BatchDetokenItem<String> for display
-                        BatchDetokenItem(
-                            token = batchItem.token,
-                            value = batchItem.value?.toString(),
-                            exists = batchItem.exists,
-                            dataType = batchItem.dataType
-                        )
-                    },
-                    summary = result.summary,
-                    outputDataType = selectedDataType
-                )
-                addResult(item)
-                showToast("✅ Batch detokenized: ${result.summary.foundCount} ${selectedDataType.displayName} found")
-            }
-            is BatchDetokenizeResult.Error -> {
-                val item = TokenDisplayItem.Error("${selectedDataType.displayName} Batch Detokenize Error", result.message)
-                addResult(item)
-                showToast("❌ Batch Error: ${result.message}")
-            }
-        }
-    }
-
-    private fun clearCache() {
-        try {
-            zeroPiiSDK.clearCache()
-            addResult(TokenDisplayItem.CacheCleared(System.currentTimeMillis()))
-            showToast("✅ Cache cleared successfully!")
-        } catch (e: Exception) {
-            showToast("❌ Error clearing cache: ${e.message}")
-        }
-    }
-
     private fun clearResults() {
         tokenResults.clear()
         adapter.notifyDataSetChanged()
@@ -861,27 +593,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun getDataTypeName(dataType: DataType): String {
-        return when (dataType) {
-            DataType.STRING -> "string"
-            DataType.INT -> "integer"
-            DataType.LONG -> "long"
-            DataType.FLOAT -> "float"
-            DataType.DOUBLE -> "double"
-            DataType.BOOLEAN -> "boolean"
-        }
-    }
-
     private fun updateUIForCurrentSelection() {
-        // Update button visibility based on operation type
         when (selectedOperation) {
             Operation.SINGLE -> {
                 tokenizeButton.visibility = android.view.View.VISIBLE
-                detokenizeButton.visibility = android.view.View.VISIBLE
                 batchTokenizeButton.visibility = android.view.View.GONE
-                batchDetokenizeButton.visibility = android.view.View.GONE
 
-                // Hide file import options for single operations
                 importFileButton.visibility = android.view.View.GONE
                 if (importedData.isEmpty()) {
                     clearImportButton.visibility = android.view.View.GONE
@@ -890,19 +607,9 @@ class MainActivity : AppCompatActivity() {
             }
             Operation.BATCH -> {
                 tokenizeButton.visibility = android.view.View.GONE
-                detokenizeButton.visibility = android.view.View.GONE
                 batchTokenizeButton.visibility = android.view.View.VISIBLE
-                batchDetokenizeButton.visibility = android.view.View.VISIBLE
 
-                // Show file import options for batch operations
                 importFileButton.visibility = android.view.View.VISIBLE
-
-                // Update batch button text based on imported data
-                if (importedData.isNotEmpty()) {
-                    //batchTokenizeButton.text = "Tokenize Imported Data (${importedData.size})"
-                } else {
-                    //batchTokenizeButton.text = "Batch Tokenize Sample Data"
-                }
             }
         }
 
@@ -937,15 +644,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatusChips() {
         chipEncryption.text = "🔒 Encryption: ON"
-        chipCache.text = "💾 Cache: ON"
     }
 
     private fun disableAllButtons() {
         tokenizeButton.isEnabled = false
-        detokenizeButton.isEnabled = false
         batchTokenizeButton.isEnabled = false
-        batchDetokenizeButton.isEnabled = false
-        clearCacheButton.isEnabled = false
         clearResultsButton.isEnabled = false
         importFileButton.isEnabled = false
         clearImportButton.isEnabled = false
