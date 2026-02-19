@@ -1,6 +1,13 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+}
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) load(file.inputStream())
 }
 
 android {
@@ -15,6 +22,27 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "OAUTH_URL",
+            "\"${localProperties.getProperty("OAUTH_URL", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "OAUTH_CLIENT_ID",
+            "\"${localProperties.getProperty("OAUTH_CLIENT_ID", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "OAUTH_CLIENT_SECRET",
+            "\"${localProperties.getProperty("OAUTH_CLIENT_SECRET", "")}\""
+        )
+        buildConfigField("String", "API_URL", "\"${localProperties.getProperty("API_URL", "")}\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
@@ -45,6 +73,11 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.cardview)
+
+    // Networking (for OAuth token provider)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

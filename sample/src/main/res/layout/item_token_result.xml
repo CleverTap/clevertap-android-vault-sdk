@@ -61,7 +61,6 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/copyButton"
-                style="@style/Widget.Material3.Button.OutlinedButton.Icon"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:layout_marginEnd="8dp"
@@ -70,7 +69,6 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/retryButton"
-                style="@style/Widget.Material3.Button.OutlinedButton.Icon"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:layout_marginEnd="8dp"
@@ -79,7 +77,6 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/detailsButton"
-                style="@style/Widget.Material3.Button.OutlinedButton.Icon"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:text="📊 Details"
