@@ -41,11 +41,17 @@ class AccessTokenProviderAuthRepository(
             }
 
             logger.d("Requesting new auth token")
-            return refreshAccessToken()
+            return doRefreshToken()
         }
     }
 
     override suspend fun refreshAccessToken(): String {
+        mutex.withLock {
+            return doRefreshToken()
+        }
+    }
+
+    private suspend fun doRefreshToken(): String {
         val tokenInfo = fetchTokenFromProvider()
         processTokenInfo(tokenInfo)
         return accessToken!!
