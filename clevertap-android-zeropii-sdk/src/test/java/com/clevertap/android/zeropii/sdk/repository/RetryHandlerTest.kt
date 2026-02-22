@@ -1,5 +1,7 @@
 package com.clevertap.android.zeropii.sdk.repository
 
+import com.clevertap.android.zeropii.sdk.retry.DefaultRetryPolicy
+import com.clevertap.android.zeropii.sdk.retry.RetryPolicy
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
 import io.mockk.Called
 import io.mockk.Runs
@@ -53,7 +55,7 @@ class RetryHandlerSuccessfulCallTest(
     fun setUp() {
         mockAuthRepository = mockk(relaxed = true)
         mockLogger = mockk(relaxed = true)
-        retryHandler = RetryHandler(mockAuthRepository, mockLogger, maxRetries = 2)
+        retryHandler = RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 2))
     }
 
     @Test
@@ -85,7 +87,7 @@ class RetryHandler401Test {
     fun setUp() {
         mockAuthRepository = mockk(relaxed = true)
         mockLogger = mockk(relaxed = true)
-        retryHandler = RetryHandler(mockAuthRepository, mockLogger, maxRetries = 2)
+        retryHandler = RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 2))
     }
 
     @Test
@@ -108,8 +110,8 @@ class RetryHandler401Test {
     }
 
     @Test
-    fun shouldFailAfterMaxRetriesOn401() = runTest {
-        // Arrange
+    fun shouldReturnErrorAfterSingleTokenRefreshOn401() = runTest {
+        // Arrange: both attempts return 401
         val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val apiCall: suspend () -> Response<String> = mockk()
 
@@ -119,14 +121,14 @@ class RetryHandler401Test {
         // Act
         val result = retryHandler.executeWithRetry(apiCall)
 
-        // Assert
+        // Assert: Only one token refresh per executeWithRetry call
         assertEquals(
-            "Should return last 401 response after max retries",
+            "Should return 401 after single token refresh attempt",
             unauthorizedResponse,
             result
         )
-        coVerify(exactly = 3) { apiCall() } // Initial + 2 retries
-        coVerify(exactly = 2) { mockAuthRepository.refreshAccessToken() }
+        coVerify(exactly = 2) { apiCall() } // Initial + 1 retry after refresh
+        coVerify(exactly = 1) { mockAuthRepository.refreshAccessToken() }
     }
 
     @Test
@@ -184,7 +186,7 @@ class RetryHandlerNonRetryableExceptionTest(
     fun setUp() {
         mockAuthRepository = mockk(relaxed = true)
         mockLogger = mockk(relaxed = true)
-        retryHandler = RetryHandler(mockAuthRepository, mockLogger, maxRetries = 2)
+        retryHandler = RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 2))
     }
 
     @Test
@@ -219,7 +221,7 @@ class RetryHandlerComplexScenarioTest {
         mockAuthRepository = mockk(relaxed = true)
         mockLogger = mockk(relaxed = true)
         retryHandler =
-            RetryHandler(mockAuthRepository, mockLogger, maxRetries = 3, initialDelayMs = 50L)
+            RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 3))
     }
 
     @Test
@@ -286,7 +288,7 @@ class RetryHandlerEdgeCaseTest {
     @Test
     fun shouldHandleZeroMaxRetries() = runTest {
         // Arrange
-        val retryHandler = RetryHandler(mockAuthRepository, mockLogger, maxRetries = 0)
+        val retryHandler = RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 0))
         val errorResponse = Response.error<String>(500, ResponseBody.create(null,"Server Error"))
         val apiCall: suspend () -> Response<String> = mockk()
 
@@ -355,7 +357,18 @@ class RetryHandlerServerErrorDelayTest(
     fun setUp() {
         mockAuthRepository = mockk(relaxed = true)
         mockLogger = mockk(relaxed = true)
-        retryHandler = RetryHandler(mockAuthRepository, mockLogger, maxRetries, initialDelayMs)
+
+        // Use a custom RetryPolicy that mirrors the parameterized initialDelayMs
+        val customPolicy = object : RetryPolicy {
+            override fun shouldRetry(attempt: Int, httpStatusCode: Int?): Boolean {
+                if (attempt >= maxRetries) return false
+                return httpStatusCode == null || httpStatusCode in setOf(500, 502, 503, 504, 429)
+            }
+            override fun retryDelayMs(attempt: Int): Long {
+                return initialDelayMs * (1 shl (attempt + 1))
+            }
+        }
+        retryHandler = RetryHandler(mockAuthRepository, mockLogger, customPolicy)
 
         // Mock the delay function to avoid actual waiting
         mockkStatic("kotlinx.coroutines.DelayKt")
@@ -408,7 +421,7 @@ class RetryHandlerNetworkErrorDelayTest {
         mockAuthRepository = mockk(relaxed = true)
         mockLogger = mockk(relaxed = true)
         retryHandler =
-            RetryHandler(mockAuthRepository, mockLogger, maxRetries = 2, initialDelayMs = 1000L)
+            RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 2))
 
         mockkStatic("kotlinx.coroutines.DelayKt")
         coEvery { kotlinx.coroutines.delay(any(Long::class)) } just Runs
@@ -475,7 +488,7 @@ class RetryHandler401NoDelayTest {
     fun setUp() {
         mockAuthRepository = mockk(relaxed = true)
         mockLogger = mockk(relaxed = true)
-        retryHandler = RetryHandler(mockAuthRepository, mockLogger, maxRetries = 2, initialDelayMs = 1000L)
+        retryHandler = RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 2))
 
         mockkStatic("kotlinx.coroutines.DelayKt")
         coEvery { kotlinx.coroutines.delay(any(Long::class)) } just Runs
@@ -504,13 +517,13 @@ class RetryHandler401NoDelayTest {
         coVerify(exactly = 2) { apiCall() }
         coVerify(exactly = 1) { mockAuthRepository.refreshAccessToken() }
 
-        // ✅ Critical: Verify delay was NEVER called for 401 errors
+        // Critical: Verify delay was NEVER called for 401 errors
         coVerify(exactly = 0) { kotlinx.coroutines.delay(any(Long::class)) }
 
     }
 
     @Test
-    fun shouldNotDelayOn401EvenWithMultipleRetries() = runTest {
+    fun shouldNotDelayOn401EvenWhenBothAttemptsReturn401() = runTest {
         // Arrange
         val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null,"Unauthorized"))
         val apiCall: suspend () -> Response<String> = mockk()
@@ -521,12 +534,55 @@ class RetryHandler401NoDelayTest {
         // Act
         val result = retryHandler.executeWithRetry(apiCall)
 
-        // Assert
-        assertEquals("Should return 401 after max retries", unauthorizedResponse, result)
-        coVerify(exactly = 3) { apiCall() } // Initial + 2 retries
-        coVerify(exactly = 2) { mockAuthRepository.refreshAccessToken() }
+        // Assert: Only one token refresh per executeWithRetry call
+        assertEquals("Should return 401 after single token refresh", unauthorizedResponse, result)
+        coVerify(exactly = 2) { apiCall() } // Initial + 1 retry after refresh
+        coVerify(exactly = 1) { mockAuthRepository.refreshAccessToken() }
 
-        // ✅ Still no delay calls even with multiple 401s
+        // Still no delay calls for 401s
         coVerify(exactly = 0) { kotlinx.coroutines.delay(any(Long::class)) }
+    }
+}
+
+// ====================================
+// tokenRefreshed Reset Tests (Bug Fix Verification)
+// ====================================
+class RetryHandlerTokenRefreshResetTest {
+    private lateinit var mockAuthRepository: AuthRepository
+    private lateinit var mockLogger: ZeroPiiLogger
+    private lateinit var retryHandler: RetryHandler
+
+    @Before
+    fun setUp() {
+        mockAuthRepository = mockk(relaxed = true)
+        mockLogger = mockk(relaxed = true)
+        retryHandler = RetryHandler(mockAuthRepository, mockLogger, DefaultRetryPolicy(maxRetries = 1))
+    }
+
+    @Test
+    fun shouldRefreshTokenOnSecondExecuteWithRetryCallAfterFirst401() = runTest {
+        // Arrange: First call gets 401 then succeeds
+        val unauthorizedResponse = Response.error<String>(401, ResponseBody.create(null, "Unauthorized"))
+        val successResponse = Response.success("Success")
+
+        coEvery { mockAuthRepository.refreshAccessToken() } returns "new-token"
+
+        // First executeWithRetry call: 401 → refresh → success
+        val apiCall1: suspend () -> Response<String> = mockk()
+        coEvery { apiCall1() } returnsMany listOf(unauthorizedResponse, successResponse)
+
+        val result1 = retryHandler.executeWithRetry(apiCall1)
+        assertEquals(successResponse, result1)
+        coVerify(exactly = 1) { mockAuthRepository.refreshAccessToken() }
+
+        // Second executeWithRetry call: also gets 401 — tokenRefreshed should be reset
+        val apiCall2: suspend () -> Response<String> = mockk()
+        coEvery { apiCall2() } returnsMany listOf(unauthorizedResponse, successResponse)
+
+        val result2 = retryHandler.executeWithRetry(apiCall2)
+        assertEquals(successResponse, result2)
+
+        // Verify token was refreshed AGAIN for the second call
+        coVerify(exactly = 2) { mockAuthRepository.refreshAccessToken() }
     }
 }
