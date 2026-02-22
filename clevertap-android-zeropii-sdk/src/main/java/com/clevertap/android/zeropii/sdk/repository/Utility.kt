@@ -5,46 +5,53 @@ import com.clevertap.android.zeropii.sdk.model.BatchTokenizeResponse
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeSummary
 import com.clevertap.android.zeropii.sdk.model.TokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeResponse
+import com.clevertap.android.zeropii.sdk.retry.RetryPolicy
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
 import kotlinx.coroutines.delay
 import retrofit2.Response
 import java.io.IOException
 
 /**
- * Handles retry logic with exponential backoff for network operations
+ * Handles retry logic for network operations, delegating retry decisions to [RetryPolicy].
+ *
+ * 401 Unauthorized is handled internally (token refresh + one immediate retry) and is
+ * never passed to the [RetryPolicy].
  */
 class RetryHandler(
     private val authRepository: AuthRepository,
     private val logger: ZeroPiiLogger,
-    private val maxRetries: Int = 1,
-    private val initialDelayMs: Long = 1000L
+    private val retryPolicy: RetryPolicy
 ) {
+    private var tokenRefreshed = false
+
     /**
-     * Executes an API call with retry logic and exponential backoff
+     * Executes an API call with retry logic driven by the injected [RetryPolicy].
      */
     suspend fun <T> executeWithRetry(apiCall: suspend () -> Response<T>): Response<T> {
         var attempt = 0
 
-        while (attempt <= maxRetries) {
+        while (true) {
             try {
                 val response = apiCall()
 
                 when (response.code()) {
                     401 -> {
-                        // Authentication error - refresh token and retry immediately
-                        if (attempt < maxRetries) {
+                        // Authentication error — SDK handles internally: refresh token + immediate retry.
+                        // Not delegated to RetryPolicy. Only one token refresh per executeWithRetry call.
+                        if (!tokenRefreshed) {
                             logger.d("401 Unauthorized - refreshing token and retrying immediately (no delay)")
                             authRepository.refreshAccessToken()
-                            attempt++
-                            continue // No delay for authentication issues
+                            tokenRefreshed = true
+                            continue
                         }
                     }
 
-                    500, 502, 503, 504, 429 -> {
-                        // Server errors or rate limiting - retry with delay
-                        if (attempt < maxRetries) {
-                            logger.w("Server error ${response.code()} - retrying after delay")
-                            attempt = retryWithDelay(attempt)
+                    else -> {
+                        if (!response.isSuccessful && retryPolicy.shouldRetry(attempt, response.code())) {
+                            val delayMs = retryPolicy.retryDelayMs(attempt)
+                            logger.w("Server error ${response.code()} - retrying after ${delayMs}ms")
+                            delay(delayMs)
+                            attempt++
                             continue
                         }
                     }
@@ -53,34 +60,21 @@ class RetryHandler(
                 return response
 
             } catch (e: IOException) {
-                // Network errors - retry with delay
-                if (attempt < maxRetries) {
-                    logger.w("Network error - retrying after delay", e)
-                    attempt = retryWithDelay(attempt)
+                // Network error — null status code signals no HTTP response was received.
+                if (retryPolicy.shouldRetry(attempt, null)) {
+                    val delayMs = retryPolicy.retryDelayMs(attempt)
+                    logger.w("Network error - retrying after ${delayMs}ms", e)
+                    delay(delayMs)
+                    attempt++
                     continue
                 }
-                throw Exception("Network error after $maxRetries retries", e)
+                throw Exception("Network error, retries exhausted", e)
             } catch (e: Exception) {
-                // For other exceptions, don't retry - just throw
+                // Non-retryable exception — throw immediately.
                 logger.e("Non-retryable exception occurred: ${e.message}", e)
                 throw e
             }
         }
-        throw Exception("Failed after $maxRetries retries")
-    }
-
-    private suspend fun retryWithDelay(attempt: Int, exception: Exception? = null): Int {
-        val newAttempt = attempt + 1
-        val delayToApply = initialDelayMs * (1 shl newAttempt) // Exponential backoff
-
-        if (exception != null) {
-            logger.d("Waiting ${delayToApply}ms before retry attempt $newAttempt due to exception")
-        } else {
-            logger.d("Waiting ${delayToApply}ms before retry attempt $newAttempt")
-        }
-
-        delay(delayToApply)
-        return newAttempt
     }
 }
 
@@ -105,7 +99,7 @@ class ResponseProcessor(
         } else {
             val errorMessage = getErrorMessage(response, "Tokenization")
             logger.e(errorMessage)
-            TokenizeRepoResult.Error(errorMessage)
+            TokenizeRepoResult.Error(errorMessage, httpStatusCode = response.code())
         }
     }
 
@@ -128,7 +122,7 @@ class ResponseProcessor(
         } else {
             val errorMessage = getErrorMessage(response, "Batch tokenization")
             logger.e(errorMessage)
-            BatchTokenizeRepoResult.Error(errorMessage)
+            BatchTokenizeRepoResult.Error(errorMessage, httpStatusCode = response.code())
         }
     }
 

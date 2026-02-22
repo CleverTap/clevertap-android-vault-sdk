@@ -23,7 +23,7 @@ fun TokenizeRepoResult.toPublicResult(): TokenizeResult {
             dataType = this.dataType
         )
 
-        is TokenizeRepoResult.Error -> TokenizeResult.Error(this.message)
+        is TokenizeRepoResult.Error -> TokenizeResult.Error(this.message, this.httpStatusCode)
     }
 }
 
@@ -57,6 +57,6 @@ fun BatchTokenizeRepoResult.toPublicResult(): BatchTokenizeResult {
             }
         }
 
-        is BatchTokenizeRepoResult.Error -> BatchTokenizeResult.Error(this.message)
+        is BatchTokenizeRepoResult.Error -> BatchTokenizeResult.Error(this.message, this.httpStatusCode)
     }
 }
