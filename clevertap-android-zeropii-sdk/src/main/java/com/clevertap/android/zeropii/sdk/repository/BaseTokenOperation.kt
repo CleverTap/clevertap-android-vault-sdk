@@ -58,7 +58,7 @@ abstract class BaseTokenOperation<TRequest, TResponse>(
     protected abstract fun getOperationType(): String
     internal open fun validateRequest(request: TRequest) {}
     internal abstract suspend fun makeApiCall(request: TRequest, accessToken: String): Response<*>
-    internal abstract fun createErrorResult(message: String): TResponse
+    internal abstract fun createErrorResult(message: String, httpStatusCode: Int? = null): TResponse
 
     // Helper methods available to subclasses
 

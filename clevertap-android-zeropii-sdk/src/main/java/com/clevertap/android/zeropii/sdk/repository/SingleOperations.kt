@@ -40,7 +40,7 @@ class SingleTokenizeOperation(
             else -> {
                 val errorMessage = createErrorResponse(response, getOperationType())
                 logger.e(errorMessage)
-                createErrorResult(errorMessage)
+                createErrorResult(message = errorMessage, httpStatusCode = response.code())
             }
         }
     }
@@ -50,13 +50,13 @@ class SingleTokenizeOperation(
         return encryptionStrategy.tokenize(api, accessToken, request)
     }
 
-    override fun createErrorResult(message: String): TokenizeRepoResult {
-        return TokenizeRepoResult.Error(message)
+    override fun createErrorResult(message: String, httpStatusCode: Int?): TokenizeRepoResult {
+        return TokenizeRepoResult.Error(message = message, httpStatusCode = httpStatusCode)
     }
 
     private fun processEncryptedResponse(response: Response<EncryptedResponse>): TokenizeRepoResult {
         if (!isSuccessfulResponse(response)) {
-            return createErrorResult(createErrorResponse(response, getOperationType()))
+            return createErrorResult(message = createErrorResponse(response, getOperationType()), httpStatusCode = response.code())
         }
 
         val encryptedResponse = response.body()!!
