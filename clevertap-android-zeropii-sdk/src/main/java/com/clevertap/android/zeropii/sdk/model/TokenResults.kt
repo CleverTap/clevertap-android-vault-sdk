@@ -23,8 +23,9 @@ sealed class TokenizeResult {
      * Error during tokenization
      *
      * @property message The error message
+     * @property httpStatusCode HTTP status code from the API response, or null for network/SDK errors
      */
-    data class Error(val message: String) : TokenizeResult()
+    data class Error(val message: String, val httpStatusCode: Int? = null) : TokenizeResult()
 }
 
 /**
@@ -46,8 +47,9 @@ sealed class BatchTokenizeResult {
      * Error during batch tokenization
      *
      * @property message The error message
+     * @property httpStatusCode HTTP status code from the API response, or null for network/SDK errors
      */
-    data class Error(val message: String) : BatchTokenizeResult()
+    data class Error(val message: String, val httpStatusCode: Int? = null) : BatchTokenizeResult()
 }
 
 /**
@@ -61,4 +63,3 @@ data class BatchTokenItem(
     val newlyCreated: Boolean,
     val dataType: String?
 )
-
