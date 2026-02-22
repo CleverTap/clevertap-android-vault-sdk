@@ -22,13 +22,13 @@ class RetryHandler(
     private val logger: ZeroPiiLogger,
     private val retryPolicy: RetryPolicy
 ) {
-    private var tokenRefreshed = false
 
     /**
      * Executes an API call with retry logic driven by the injected [RetryPolicy].
      */
     suspend fun <T> executeWithRetry(apiCall: suspend () -> Response<T>): Response<T> {
         var attempt = 0
+        var tokenRefreshed = false
 
         while (true) {
             try {
