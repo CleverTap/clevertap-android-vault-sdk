@@ -3,6 +3,7 @@ package com.clevertap.android.zeropii.sdk.repository
 import com.clevertap.android.zeropii.sdk.auth.AccessTokenCallback
 import com.clevertap.android.zeropii.sdk.auth.AccessTokenInfo
 import com.clevertap.android.zeropii.sdk.auth.AccessTokenProvider
+import com.clevertap.android.zeropii.sdk.util.Clock
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -24,9 +25,10 @@ import kotlin.coroutines.resumeWithException
  * @property tokenProvider The app-provided token provider
  * @property logger Logger utility for recording authentication events and errors
  */
-class AccessTokenProviderAuthRepository(
+internal class AccessTokenProviderAuthRepository(
     private val tokenProvider: AccessTokenProvider,
-    private val logger: ZeroPiiLogger
+    private val logger: ZeroPiiLogger,
+    private val clock: Clock = Clock.SYSTEM
 ) : AuthRepository {
 
     private val mutex = Mutex()
@@ -52,7 +54,7 @@ class AccessTokenProviderAuthRepository(
     }
 
     override fun isTokenValid(): Boolean {
-        val currentTime = getNowInMillis()
+        val currentTime = clock.currentTimeMillis()
         return accessToken != null && currentTime < accessTokenExpiration - TimeUnit.SECONDS.toMillis(30)
     }
 
@@ -83,9 +85,7 @@ class AccessTokenProviderAuthRepository(
     private fun processTokenInfo(tokenInfo: AccessTokenInfo) {
         accessToken = tokenInfo.token
         accessTokenExpiration =
-            getNowInMillis() + TimeUnit.SECONDS.toMillis(tokenInfo.expiresInSeconds)
+            clock.currentTimeMillis() + TimeUnit.SECONDS.toMillis(tokenInfo.expiresInSeconds)
         logger.d("Auth token refreshed, expires in ${tokenInfo.expiresInSeconds} seconds")
     }
-
-    internal fun getNowInMillis() = System.currentTimeMillis()
 }

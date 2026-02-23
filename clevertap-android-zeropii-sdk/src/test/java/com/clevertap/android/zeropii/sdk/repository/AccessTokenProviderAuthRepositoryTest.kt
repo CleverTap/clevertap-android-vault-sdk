@@ -3,10 +3,9 @@ package com.clevertap.android.zeropii.sdk.repository
 import com.clevertap.android.zeropii.sdk.auth.AccessTokenCallback
 import com.clevertap.android.zeropii.sdk.auth.AccessTokenInfo
 import com.clevertap.android.zeropii.sdk.auth.AccessTokenProvider
+import com.clevertap.android.zeropii.sdk.util.Clock
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
-import io.mockk.every
 import io.mockk.mockk
-import io.mockk.spyk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,6 +30,21 @@ private fun successProvider(token: String, expiresIn: Long) = object : AccessTok
 private fun failureProvider(error: Exception) = object : AccessTokenProvider {
     override fun fetchToken(callback: AccessTokenCallback) {
         callback.onFailure(error)
+    }
+}
+
+/**
+ * Test implementation of Clock that allows controlling time for testing.
+ */
+private class TestClock(private var currentTimeMillis: Long = 1_000_000L) : Clock {
+    override fun currentTimeMillis(): Long = currentTimeMillis
+
+    fun setCurrentTimeMillis(time: Long) {
+        currentTimeMillis = time
+    }
+
+    fun advanceTimeBy(millis: Long) {
+        currentTimeMillis += millis
     }
 }
 
@@ -135,13 +149,13 @@ class AccessTokenProviderTokenValidationTest(
         // Arrange
         val expiresInSeconds = ((tokenExpiration - currentTime) / 1000)
         val provider = successProvider("test-token", expiresInSeconds)
+        val testClock = TestClock(currentTime)
 
-        val realRepository = AccessTokenProviderAuthRepository(
+        val authRepository = AccessTokenProviderAuthRepository(
             tokenProvider = provider,
-            logger = mockLogger
+            logger = mockLogger,
+            clock = testClock
         )
-        val authRepository = spyk(realRepository)
-        every { authRepository.getNowInMillis() } returns currentTime
 
         if (hasToken) {
             // Act - Get token to set it up
@@ -193,9 +207,13 @@ class AccessTokenProviderTokenAcquisitionTest {
                 callback.onSuccess(AccessTokenInfo(testAccessToken, testExpiresIn))
             }
         }
+        val testClock = TestClock(baseTime)
 
-        val authRepository = spyk(AccessTokenProviderAuthRepository(countingProvider, mockLogger))
-        every { authRepository.getNowInMillis() } returns baseTime
+        val authRepository = AccessTokenProviderAuthRepository(
+            tokenProvider = countingProvider,
+            logger = mockLogger,
+            clock = testClock
+        )
 
         // First call to set up token
         authRepository.getAccessToken()
@@ -226,16 +244,20 @@ class AccessTokenProviderTokenAcquisitionTest {
                 }
             }
         }
+        val testClock = TestClock(baseTime)
 
-        val authRepository = spyk(AccessTokenProviderAuthRepository(provider, mockLogger))
-        every { authRepository.getNowInMillis() } returns baseTime
+        val authRepository = AccessTokenProviderAuthRepository(
+            tokenProvider = provider,
+            logger = mockLogger,
+            clock = testClock
+        )
 
         // Get initial token
         val firstToken = authRepository.getAccessToken()
         assertEquals("Should get first token", oldToken, firstToken)
 
         // Move time forward to expire token (past buffer zone)
-        every { authRepository.getNowInMillis() } returns baseTime + TimeUnit.MINUTES.toMillis(2)
+        testClock.setCurrentTimeMillis(baseTime + TimeUnit.MINUTES.toMillis(2))
 
         // Act - Should refresh expired token
         val refreshedToken = authRepository.getAccessToken()
@@ -277,9 +299,13 @@ class AccessTokenProviderPreciseTimeTest {
         // Arrange
         val baseTime = 1_000_000L
         val provider = successProvider("time-test-token", 3600)
-        val realRepository = AccessTokenProviderAuthRepository(provider, mockLogger)
-        val authRepository = spyk(realRepository)
-        every { authRepository.getNowInMillis() } returns baseTime
+        val testClock = TestClock(baseTime)
+
+        val authRepository = AccessTokenProviderAuthRepository(
+            tokenProvider = provider,
+            logger = mockLogger,
+            clock = testClock
+        )
 
         // Act - Get token at baseTime
         authRepository.getAccessToken()
@@ -288,19 +314,19 @@ class AccessTokenProviderPreciseTimeTest {
         assertTrue("Token should be valid at acquisition time", authRepository.isTokenValid())
 
         // Move time forward to just before buffer zone (31 seconds before expiration)
-        every { authRepository.getNowInMillis() } returns baseTime + TimeUnit.HOURS.toMillis(1) - TimeUnit.SECONDS.toMillis(31)
+        testClock.setCurrentTimeMillis(baseTime + TimeUnit.HOURS.toMillis(1) - TimeUnit.SECONDS.toMillis(31))
         assertTrue("Token should be valid 31 seconds before expiration", authRepository.isTokenValid())
 
         // Move time to exactly at buffer zone (30 seconds before expiration)
-        every { authRepository.getNowInMillis() } returns baseTime + TimeUnit.HOURS.toMillis(1) - TimeUnit.SECONDS.toMillis(30)
+        testClock.setCurrentTimeMillis(baseTime + TimeUnit.HOURS.toMillis(1) - TimeUnit.SECONDS.toMillis(30))
         assertFalse("Token should be invalid at 30 second buffer", authRepository.isTokenValid())
 
         // Move time to within buffer zone (15 seconds before expiration)
-        every { authRepository.getNowInMillis() } returns baseTime + TimeUnit.HOURS.toMillis(1) - TimeUnit.SECONDS.toMillis(15)
+        testClock.setCurrentTimeMillis(baseTime + TimeUnit.HOURS.toMillis(1) - TimeUnit.SECONDS.toMillis(15))
         assertFalse("Token should be invalid within buffer zone", authRepository.isTokenValid())
 
         // Move time past expiration
-        every { authRepository.getNowInMillis() } returns baseTime + TimeUnit.HOURS.toMillis(1) + TimeUnit.SECONDS.toMillis(1)
+        testClock.setCurrentTimeMillis(baseTime + TimeUnit.HOURS.toMillis(1) + TimeUnit.SECONDS.toMillis(1))
         assertFalse("Token should be invalid after expiration", authRepository.isTokenValid())
     }
 
@@ -322,19 +348,22 @@ class AccessTokenProviderPreciseTimeTest {
             val testTime = expirationTime - TimeUnit.SECONDS.toMillis(secondsBeforeExpiration)
 
             val provider = successProvider("boundary-test-token", 3600)
+            val testClock = TestClock(baseTime)
 
-            val freshRepository = AccessTokenProviderAuthRepository(provider, mockLogger)
-            val repositorySpy = spyk(freshRepository)
+            val repository = AccessTokenProviderAuthRepository(
+                tokenProvider = provider,
+                logger = mockLogger,
+                clock = testClock
+            )
 
             // Set up token at base time
-            every { repositorySpy.getNowInMillis() } returns baseTime
-            repositorySpy.getAccessToken()
+            repository.getAccessToken()
 
             // Move to test time
-            every { repositorySpy.getNowInMillis() } returns testTime
+            testClock.setCurrentTimeMillis(testTime)
 
             // Act & Assert
-            val isValid = repositorySpy.isTokenValid()
+            val isValid = repository.isTokenValid()
             assertEquals(description, expectedValid, isValid)
         }
     }
