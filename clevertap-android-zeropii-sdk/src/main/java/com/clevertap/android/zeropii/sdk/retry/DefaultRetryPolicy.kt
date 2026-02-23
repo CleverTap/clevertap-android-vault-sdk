@@ -8,7 +8,7 @@ package com.clevertap.android.zeropii.sdk.retry
  *
  * @param maxRetries Maximum number of retries. Defaults to 1.
  */
-class DefaultRetryPolicy(private val maxRetries: Int = 1) : RetryPolicy {
+internal class DefaultRetryPolicy(private val maxRetries: Int = 1) : RetryPolicy {
 
     private val retryableStatusCodes = setOf(500, 502, 503, 504, 429)
 
