@@ -1,13 +1,8 @@
 package com.clevertap.android.zeropii.sdk.util
 
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenItem
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeRepoResult
-import com.clevertap.android.zeropii.sdk.model.BatchDetokenizeResult
 import com.clevertap.android.zeropii.sdk.model.BatchTokenItem
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeResult
-import com.clevertap.android.zeropii.sdk.model.DetokenizeRepoResult
-import com.clevertap.android.zeropii.sdk.model.DetokenizeResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeResult
 
@@ -29,28 +24,6 @@ fun TokenizeRepoResult.toPublicResult(): TokenizeResult {
         )
 
         is TokenizeRepoResult.Error -> TokenizeResult.Error(this.message)
-    }
-}
-
-/**
- * Converts DetokenizeRepoResult (String) to DetokenizeResult<T> (Public API) using TypeConverter
- */
-fun <T> DetokenizeRepoResult.toPublicResult(converter: TypeConverter<T>): DetokenizeResult<T> {
-    return when (this) {
-        is DetokenizeRepoResult.Success -> {
-            try {
-                val convertedValue = converter.fromStringNullable(this.value)
-                DetokenizeResult.Success(
-                    value = convertedValue,
-                    exists = this.exists,
-                    dataType = this.dataType
-                )
-            } catch (e: Exception) {
-                DetokenizeResult.Error("Failed to convert value: ${e.message}")
-            }
-        }
-
-        is DetokenizeRepoResult.Error -> DetokenizeResult.Error(this.message)
     }
 }
 
@@ -85,36 +58,5 @@ fun BatchTokenizeRepoResult.toPublicResult(): BatchTokenizeResult {
         }
 
         is BatchTokenizeRepoResult.Error -> BatchTokenizeResult.Error(this.message)
-    }
-}
-
-/**
- * Converts BatchDetokenizeRepoResult (String) to BatchDetokenizeResult<T> (Public API) using TypeConverter
- */
-fun <T> BatchDetokenizeRepoResult.toPublicResult(converter: TypeConverter<T>): BatchDetokenizeResult<T> {
-    return when (this) {
-        is BatchDetokenizeRepoResult.Success -> {
-            try {
-                val publicItems = this.results.map { repoItem ->
-                    val convertedValue = converter.fromStringNullable(repoItem.value)
-
-                    BatchDetokenItem(
-                        token = repoItem.token,
-                        value = convertedValue,
-                        exists = repoItem.exists,
-                        dataType = repoItem.dataType
-                    )
-                }
-
-                BatchDetokenizeResult.Success(
-                    results = publicItems,
-                    summary = this.summary
-                )
-            } catch (e: Exception) {
-                BatchDetokenizeResult.Error("Failed to convert batch detokenize result: ${e.message}")
-            }
-        }
-
-        is BatchDetokenizeRepoResult.Error -> BatchDetokenizeResult.Error(this.message)
     }
 }

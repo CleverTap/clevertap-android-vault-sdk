@@ -1,7 +1,6 @@
 package com.clevertap.android.zeropii.sdk.repository
 
 import com.clevertap.android.zeropii.sdk.api.TokenizationApi
-import com.clevertap.android.zeropii.sdk.cache.TokenCache
 import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
 import com.clevertap.android.zeropii.sdk.model.BatchTokenItemResponse
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeRepoResult
@@ -91,172 +90,6 @@ class BatchTokenizeOperationValidationTest(
 }
 
 // ====================================
-// Cache State Check Tests for BatchTokenize
-// ====================================
-@RunWith(Parameterized::class)
-class BatchTokenizeOperationCacheCheckTest(
-    private val inputValues: List<String>,
-    private val cachedTokens: Map<String, Pair<String, String>>, // value -> (token, dataType)
-    private val expectedCacheResult: String,
-    private val description: String
-) {
-    private lateinit var mockCacheManager: CacheManager
-    private lateinit var operation: BatchTokenizeOperation
-
-    companion object {
-        @JvmStatic
-        @Parameterized.Parameters(name = "Should handle cache check: {3}")
-        fun data(): Collection<Array<Any>> {
-            return listOf(
-                // All values cached
-                arrayOf(
-                    listOf("555-12-3456", "john@example.com"),
-                    mapOf(
-                        "555-12-3456" to ("555-67-8901" to "string"),
-                        "john@example.com" to ("abc@example.com" to "string")
-                    ),
-                    "CompleteFromCache",
-                    "All values found in cache"
-                ),
-                // No values cached
-                arrayOf(
-                    listOf("new-value-1", "new-value-2"),
-                    emptyMap<String, Pair<String, String>>(),
-                    "PartialFromCache",
-                    "No values found in cache"
-                ),
-                // Partial cache hit
-                arrayOf(
-                    listOf("555-12-3456", "new-value", "john@example.com"),
-                    mapOf(
-                        "555-12-3456" to ("555-67-8901" to "string")
-                    ),
-                    "PartialFromCache",
-                    "Some values found in cache"
-                ),
-                // Mixed data types
-                arrayOf(
-                    listOf("123456", "true", "555-12-3456"),
-                    mapOf(
-                        "123456" to ("987654" to "integer"),
-                        "true" to ("false" to "boolean")
-                    ),
-                    "PartialFromCache",
-                    "Mixed data types with partial cache"
-                )
-            )
-        }
-    }
-
-    @Before
-    fun setUp() {
-        mockCacheManager = mockk()
-        operation = createTestBatchTokenizeOperation(cacheManager = mockCacheManager)
-    }
-
-    @Test
-    fun shouldCheckCacheStateCorrectly() {
-        // Arrange
-        val batchCacheResult = createMockBatchCacheResult(inputValues, cachedTokens)
-        every { mockCacheManager.getBatchTokensFromCache(inputValues) } returns batchCacheResult
-
-        // Act
-        val result = operation.checkCacheWithState(inputValues)
-
-        // Assert
-        when (expectedCacheResult) {
-            "CompleteFromCache" -> {
-                assertTrue(
-                    "Should be CompleteFromCache",
-                    result is CacheCheckResult.CompleteFromCache
-                )
-                val completeResult =
-                    result as CacheCheckResult.CompleteFromCache<List<String>, BatchTokenizeRepoResult>
-                assertEquals(
-                    "Original request should match",
-                    inputValues,
-                    completeResult.originalRequest
-                )
-
-                val batchResult = completeResult.result as BatchTokenizeRepoResult.Success
-                assertEquals(
-                    "Should have correct number of results",
-                    inputValues.size,
-                    batchResult.results.size
-                )
-                assertEquals(
-                    "All should be existing",
-                    inputValues.size,
-                    batchResult.summary.existingCount
-                )
-                assertEquals(
-                    "None should be newly created",
-                    0,
-                    batchResult.summary.newlyCreatedCount
-                )
-            }
-
-            "PartialFromCache" -> {
-                assertTrue(
-                    "Should be PartialFromCache",
-                    result is CacheCheckResult.PartialFromCache
-                )
-                val partialResult =
-                    result as CacheCheckResult.PartialFromCache<List<String>, BatchTokenizeRepoResult>
-                assertEquals(
-                    "Original request should match",
-                    inputValues,
-                    partialResult.originalRequest
-                )
-
-                val cachedItems = partialResult.cachedItems as List<BatchTokenItemResponse>
-                assertEquals(
-                    "Should have correct number of cached items",
-                    cachedTokens.size,
-                    cachedItems.size
-                )
-
-                val uncachedValues = partialResult.uncachedRequest
-                assertEquals(
-                    "Should have correct number of uncached items",
-                    inputValues.size - cachedTokens.size,
-                    uncachedValues.size
-                )
-            }
-        }
-
-        verify(exactly = 1) { mockCacheManager.getBatchTokensFromCache(inputValues) }
-    }
-
-    private fun createMockBatchCacheResult(
-        values: List<String>,
-        cachedTokens: Map<String, Pair<String, String>>
-    ): BatchCacheResult {
-        val cached = mutableListOf<BatchTokenItemResponse>()
-        val uncached = mutableListOf<String>()
-
-        values.forEach { value ->
-            val cachedPair = cachedTokens[value]
-            if (cachedPair != null) {
-                cached.add(
-                    BatchTokenItemResponse(
-                        originalValue = value,
-                        token = cachedPair.first,
-                        exists = true,
-                        newlyCreated = false,
-                        dataType = cachedPair.second
-                    )
-                )
-            } else {
-                uncached.add(value)
-            }
-        }
-
-        return BatchCacheResult(cached, uncached)
-    }
-}
-
-// ====================================
 // Response Processing Tests for BatchTokenize
 // ====================================
 class BatchTokenizeOperationResponseProcessingTest {
@@ -281,109 +114,32 @@ class BatchTokenizeOperationResponseProcessingTest {
             BatchTokenItemResponse("value1", "token1", false, true, "string"),
             BatchTokenItemResponse("value2", "token2", false, true, "string")
         )
-        val cachedResults = listOf(
-            BatchTokenItemResponse("value3", "token3", true, false, "string")
-        )
         val batchResponse = BatchTokenizeResponse(
             results = apiResults,
             summary = BatchTokenizeSummary(2, 0, 2)
         )
         val response = Response.success(batchResponse)
-        val cacheResult = CacheCheckResult.PartialFromCache<List<String>, BatchTokenizeRepoResult>(
-            originalRequest = listOf("value1", "value2", "value3"),
-            cachedItems = cachedResults,
-            uncachedRequest = listOf("value1", "value2")
-        )
 
         val expectedResult = BatchTokenizeRepoResult.Success(
-            results = cachedResults + apiResults,
-            summary = BatchTokenizeSummary(3, 1, 2)
-        )
-
-        every {
-            mockResponseProcessor.processBatchTokenizeResponse(
-                response,
-                cachedResults
-            )
-        } returns expectedResult
-
-        // Act
-        val result = operation.processResponseWithCacheData(response, cacheResult)
-
-        // Assert
-        assertTrue("Should return success result", result is BatchTokenizeRepoResult.Success)
-        val successResult = result as BatchTokenizeRepoResult.Success
-        assertEquals("Should have correct total results", 3, successResult.results.size)
-        assertEquals("Should have correct summary", 3, successResult.summary.processedCount)
-
-        verify(exactly = 1) {
-            mockResponseProcessor.processBatchTokenizeResponse(
-                response,
-                cachedResults
-            )
-        }
-    }
-
-    @Test
-    fun shouldProcessBatchTokenizeResponseWithEmptyCacheCorrectly() {
-        // Arrange
-        val apiResults = listOf(
-            BatchTokenItemResponse("value1", "token1", false, true, "string"),
-            BatchTokenItemResponse("value2", "token2", false, true, "string"),
-            BatchTokenItemResponse("value3", "token3", false, true, "integer")
-        )
-        val cachedResults = emptyList<BatchTokenItemResponse>()  // ✅ Empty cache scenario
-
-        val batchResponse = BatchTokenizeResponse(
             results = apiResults,
-            summary = BatchTokenizeSummary(3, 0, 3)  // total=3, existing=0, newlyCreated=3
-        )
-        val response = Response.success(batchResponse)
-
-        val cacheResult = CacheCheckResult.NothingFromCache<List<String>, BatchTokenizeRepoResult>(
-            originalRequest = listOf("value1", "value2", "value3"),
-            uncachedRequest = listOf("value1", "value2", "value3")  // All items uncached
-        )
-
-        val expectedResult = BatchTokenizeRepoResult.Success(
-            results = apiResults,  // Only API results, no cached items
-            summary = BatchTokenizeSummary(3, 0, 3)  // All newly created
+            summary = BatchTokenizeSummary(2, 0, 2)
         )
 
         every {
-            mockResponseProcessor.processBatchTokenizeResponse(
-                response,
-                cachedResults  // Empty list
-            )
+            mockResponseProcessor.processBatchTokenizeResponse(response)
         } returns expectedResult
 
         // Act
-        val result = operation.processResponseWithCacheData(response, cacheResult)
+        val result = operation.processResponse(response)
 
         // Assert
         assertTrue("Should return success result", result is BatchTokenizeRepoResult.Success)
         val successResult = result as BatchTokenizeRepoResult.Success
+        assertEquals("Should have correct total results", 2, successResult.results.size)
+        assertEquals("Should have correct summary", 2, successResult.summary.processedCount)
 
-        assertEquals("Should have correct total results", 3, successResult.results.size)
-        assertEquals("Should contain only API results", apiResults, successResult.results)
-        assertEquals("Should have correct summary - total", 3, successResult.summary.processedCount)
-        assertEquals(
-            "Should have correct summary - existing",
-            0,
-            successResult.summary.existingCount
-        )
-        assertEquals(
-            "Should have correct summary - newly created",
-            3,
-            successResult.summary.newlyCreatedCount
-        )
-
-        // Verify processor was called with empty cached results
         verify(exactly = 1) {
-            mockResponseProcessor.processBatchTokenizeResponse(
-                response,
-                emptyList()
-            )
+            mockResponseProcessor.processBatchTokenizeResponse(response)
         }
     }
 
@@ -392,14 +148,6 @@ class BatchTokenizeOperationResponseProcessingTest {
         // Arrange
         val encryptedResponse = EncryptedResponse("encrypted-payload", "iv")
         val response = Response.success(encryptedResponse)
-        val cachedResults = listOf(
-            BatchTokenItemResponse("cached-value", "cached-token", true, false, "string")
-        )
-        val cacheResult = CacheCheckResult.PartialFromCache<List<String>, BatchTokenizeRepoResult>(
-            originalRequest = listOf("cached-value", "new-value"),
-            cachedItems = cachedResults,
-            uncachedRequest = listOf("new-value")
-        )
 
         val decryptedApiResults = listOf(
             BatchTokenItemResponse("new-value", "new-token", false, true, "string")
@@ -417,21 +165,16 @@ class BatchTokenizeOperationResponseProcessingTest {
         } returns decryptedResponse
 
         // Act
-        val result = operation.processResponseWithCacheData(response, cacheResult)
+        val result = operation.processResponse(response)
 
         // Assert
         assertTrue("Should return success result", result is BatchTokenizeRepoResult.Success)
         val successResult = result as BatchTokenizeRepoResult.Success
-        assertEquals("Should have combined results", 2, successResult.results.size)
+        assertEquals("Should have decrypted results", 1, successResult.results.size)
         assertEquals(
-            "Should have cached result first",
-            "cached-value",
-            successResult.results[0].originalValue
-        )
-        assertEquals(
-            "Should have API result second",
+            "Should have API result",
             "new-value",
-            successResult.results[1].originalValue
+            successResult.results[0].originalValue
         )
 
         verify(exactly = 1) {
@@ -447,10 +190,6 @@ class BatchTokenizeOperationResponseProcessingTest {
         // Arrange
         val encryptedResponse = EncryptedResponse("encrypted-payload", "iv")
         val response = Response.success(encryptedResponse)
-        val cacheResult = CacheCheckResult.NothingFromCache<List<String>, BatchTokenizeRepoResult>(
-            originalRequest = listOf("value1"),
-            uncachedRequest = listOf("value1")
-        )
 
         every {
             mockEncryptionStrategy.decryptResponse(
@@ -460,7 +199,7 @@ class BatchTokenizeOperationResponseProcessingTest {
         } returns null
 
         // Act
-        val result = operation.processResponseWithCacheData(response, cacheResult)
+        val result = operation.processResponse(response)
 
         // Assert
         assertTrue("Should return error result", result is BatchTokenizeRepoResult.Error)
@@ -480,10 +219,6 @@ class BatchTokenizeOperationResponseProcessingTest {
         // Arrange
         val encryptedResponse = EncryptedResponse("encrypted-payload", "iv")
         val response = Response.success(encryptedResponse)
-        val cacheResult = CacheCheckResult.NothingFromCache<List<String>, BatchTokenizeRepoResult>(
-            originalRequest = listOf("value1", "value2"),
-            uncachedRequest = listOf("value1", "value2")
-        )
 
         // Use NoEncryptionStrategy instead of WithEncryptionStrategy
         val operationWithWrongStrategy = createTestBatchTokenizeOperation(
@@ -491,7 +226,7 @@ class BatchTokenizeOperationResponseProcessingTest {
         )
 
         // Act
-        val result = operationWithWrongStrategy.processResponseWithCacheData(response, cacheResult)
+        val result = operationWithWrongStrategy.processResponse(response)
 
         // Assert
         assertTrue("Should return error result", result is BatchTokenizeRepoResult.Error)
@@ -508,13 +243,9 @@ class BatchTokenizeOperationResponseProcessingTest {
         // Arrange
         val unknownResponse = "unknown-response-type"
         val response = Response.success(unknownResponse)
-        val cacheResult = CacheCheckResult.NothingFromCache<List<String>, BatchTokenizeRepoResult>(
-            originalRequest = listOf("value1", "value2"),
-            uncachedRequest = listOf("value1", "value2")
-        )
 
         // Act
-        val result = operation.processResponseWithCacheData(response, cacheResult)
+        val result = operation.processResponse(response)
 
         // Assert
         assertTrue("Should return error result", result is BatchTokenizeRepoResult.Error)
@@ -530,13 +261,9 @@ class BatchTokenizeOperationResponseProcessingTest {
         // Arrange
         val errorBody = ResponseBody.create(null, "Server Error")
         val response = Response.error<BatchTokenizeResponse>(500, errorBody)
-        val cacheResult = CacheCheckResult.NothingFromCache<List<String>, BatchTokenizeRepoResult>(
-            originalRequest = listOf("value1"),
-            uncachedRequest = listOf("value1")
-        )
 
         // Act
-        val result = operation.processResponseWithCacheData(response, cacheResult)
+        val result = operation.processResponse(response)
 
         // Assert
         assertTrue("Should return error result", result is BatchTokenizeRepoResult.Error)
@@ -546,53 +273,6 @@ class BatchTokenizeOperationResponseProcessingTest {
             "Error message should contain operation type",
             errorResult.message.contains("Batch Tokenize")
         )
-    }
-}
-
-// ====================================
-// Cache Update Tests for BatchTokenize
-// ====================================
-class BatchTokenizeOperationCacheUpdateTest {
-    private lateinit var mockCacheManager: CacheManager
-    private lateinit var operation: BatchTokenizeOperation
-
-    @Before
-    fun setUp() {
-        mockCacheManager = mockk(relaxed = true)
-        operation = createTestBatchTokenizeOperation(cacheManager = mockCacheManager)
-    }
-
-    @Test
-    fun shouldUpdateCacheOnSuccessfulBatchResult() {
-        // Arrange
-        val inputValues = listOf("value1", "value2")
-        val results = listOf(
-            BatchTokenItemResponse("value1", "token1", false, true, "string"),
-            BatchTokenItemResponse("value2", "token2", true, false, "string")
-        )
-        val successResult = BatchTokenizeRepoResult.Success(
-            results = results,
-            summary = BatchTokenizeSummary(2, 1, 1)
-        )
-
-        // Act
-        operation.updateCache(inputValues, successResult)
-
-        // Assert
-        verify(exactly = 1) { mockCacheManager.storeBatchTokensInCache(results) }
-    }
-
-    @Test
-    fun shouldNotUpdateCacheOnErrorResult() {
-        // Arrange
-        val inputValues = listOf("value1", "value2")
-        val errorResult = BatchTokenizeRepoResult.Error("Batch operation failed")
-
-        // Act
-        operation.updateCache(inputValues, errorResult)
-
-        // Assert
-        verify(exactly = 0) { mockCacheManager.storeBatchTokensInCache(any()) }
     }
 }
 
@@ -633,20 +313,6 @@ class BatchTokenizeOperationErrorResultTest(
         assertTrue("Should return error result", result is BatchTokenizeRepoResult.Error)
         val errorResult = result as BatchTokenizeRepoResult.Error
         assertEquals("Error message should match", errorMessage, errorResult.message)
-    }
-
-    private fun createTestBatchTokenizeOperation(): BatchTokenizeOperation {
-        return BatchTokenizeOperation(
-            tokenCache = mockk(relaxed = true),
-            authRepository = mockk(relaxed = true),
-            networkProvider = mockk(relaxed = true),
-            encryptionManager = mockk(relaxed = true),
-            logger = mockk(relaxed = true),
-            retryHandler = mockk(relaxed = true),
-            cacheManager = mockk(relaxed = true),
-            responseProcessor = mockk(relaxed = true),
-            encryptionStrategy = mockk(relaxed = true)
-        )
     }
 }
 
@@ -740,23 +406,6 @@ class BatchTokenizeOperationApiCallTest(
         }
         verify(exactly = 1) { mockNetworkProvider.tokenizationApi }
     }
-
-    private fun createTestBatchTokenizeOperation(
-        networkProvider: NetworkProvider = mockk(relaxed = true),
-        encryptionStrategy: EncryptionStrategy = mockk(relaxed = true)
-    ): BatchTokenizeOperation {
-        return BatchTokenizeOperation(
-            tokenCache = mockk(relaxed = true),
-            authRepository = mockk(relaxed = true),
-            networkProvider = networkProvider,
-            encryptionManager = mockk(relaxed = true),
-            logger = mockk(relaxed = true),
-            retryHandler = mockk(relaxed = true),
-            cacheManager = mockk(relaxed = true),
-            responseProcessor = mockk(relaxed = true),
-            encryptionStrategy = encryptionStrategy
-        )
-    }
 }
 
 
@@ -765,24 +414,20 @@ class BatchTokenizeOperationApiCallTest(
 // ====================================
 
 private fun createTestBatchTokenizeOperation(
-    tokenCache: TokenCache = mockk(relaxed = true),
     authRepository: AuthRepository = mockk(relaxed = true),
     networkProvider: NetworkProvider = mockk(relaxed = true),
     encryptionManager: EncryptionManager = mockk(relaxed = true),
     logger: ZeroPiiLogger = mockk(relaxed = true),
     retryHandler: RetryHandler = mockk(relaxed = true),
-    cacheManager: CacheManager = mockk(relaxed = true),
     responseProcessor: ResponseProcessor = mockk(relaxed = true),
     encryptionStrategy: EncryptionStrategy = mockk(relaxed = true)
 ): BatchTokenizeOperation {
     return BatchTokenizeOperation(
-        tokenCache = tokenCache,
         authRepository = authRepository,
         networkProvider = networkProvider,
         encryptionManager = encryptionManager,
         logger = logger,
         retryHandler = retryHandler,
-        cacheManager = cacheManager,
         responseProcessor = responseProcessor,
         encryptionStrategy = encryptionStrategy
     )
