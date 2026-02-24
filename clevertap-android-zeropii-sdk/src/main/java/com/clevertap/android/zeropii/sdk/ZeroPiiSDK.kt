@@ -9,6 +9,8 @@ import com.clevertap.android.zeropii.sdk.repository.AccessTokenProviderAuthRepos
 import com.clevertap.android.zeropii.sdk.repository.AuthRepository
 import com.clevertap.android.zeropii.sdk.repository.TokenRepositoryImpl
 import com.clevertap.android.zeropii.sdk.repository.TokenRepository
+import com.clevertap.android.zeropii.sdk.retry.DefaultRetryPolicy
+import com.clevertap.android.zeropii.sdk.retry.RetryPolicy
 import com.clevertap.android.zeropii.sdk.util.TypeConverterRegistry
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
 import com.clevertap.android.zeropii.sdk.util.toPublicResult
@@ -26,7 +28,8 @@ class ZeroPiiSDK private constructor(
     private val tokenProvider: AccessTokenProvider,
     private val apiUrl: String,
     private val enableEncryption: Boolean,
-    private val logLevel: Int
+    private val logLevel: Int,
+    private val retryPolicy: RetryPolicy
 ) {
     internal var sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     internal lateinit var tokenRepository: TokenRepository
@@ -54,7 +57,7 @@ class ZeroPiiSDK private constructor(
         // Create repositories
         authRepository = AccessTokenProviderAuthRepository(tokenProvider, logger)
 
-        tokenRepository = TokenRepositoryImpl(networkProvider, authRepository, encryptionManager, logger)
+        tokenRepository = TokenRepositoryImpl(networkProvider, authRepository, encryptionManager, logger, retryPolicy)
         logger.d("ZeroPiiSDK initialization complete")
     }
 
@@ -287,17 +290,20 @@ class ZeroPiiSDK private constructor(
         private var INSTANCE: ZeroPiiSDK? = null
 
         @JvmStatic
+        @JvmOverloads
         fun initialize(
             tokenProvider: AccessTokenProvider,
             apiUrl: String,
-            logLevel: ZeroPiiLogger.LogLevel = ZeroPiiLogger.LogLevel.OFF
+            logLevel: ZeroPiiLogger.LogLevel = ZeroPiiLogger.LogLevel.OFF,
+            retryPolicy: RetryPolicy = DefaultRetryPolicy()
         ): ZeroPiiSDK {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: ZeroPiiSDK(
                     tokenProvider,
                     apiUrl,
                     enableEncryption = true,
-                    logLevel = logLevel.intValue
+                    logLevel = logLevel.intValue,
+                    retryPolicy = retryPolicy
                 ).also { INSTANCE = it }
             }
         }

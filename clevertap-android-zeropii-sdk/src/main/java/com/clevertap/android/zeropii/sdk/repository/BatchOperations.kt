@@ -54,7 +54,7 @@ class BatchTokenizeOperation(
             else -> {
                 val errorMessage = createErrorResponse(response, getOperationType())
                 logger.e(errorMessage)
-                createErrorResult(errorMessage)
+                createErrorResult(message = errorMessage, httpStatusCode = response.code())
             }
         }
     }
@@ -64,15 +64,15 @@ class BatchTokenizeOperation(
         return encryptionStrategy.batchTokenize(api, accessToken, request)
     }
 
-    override fun createErrorResult(message: String): BatchTokenizeRepoResult {
-        return BatchTokenizeRepoResult.Error(message)
+    override fun createErrorResult(message: String, httpStatusCode: Int?): BatchTokenizeRepoResult {
+        return BatchTokenizeRepoResult.Error(message = message, httpStatusCode = httpStatusCode)
     }
 
     private fun processEncryptedResponse(
         response: Response<EncryptedResponse>
     ): BatchTokenizeRepoResult {
         if (!isSuccessfulResponse(response)) {
-            return createErrorResult(createErrorResponse(response, getOperationType()))
+            return createErrorResult(message = createErrorResponse(response, getOperationType()), httpStatusCode = response.code())
         }
 
         val encryptedResponse = response.body()!!

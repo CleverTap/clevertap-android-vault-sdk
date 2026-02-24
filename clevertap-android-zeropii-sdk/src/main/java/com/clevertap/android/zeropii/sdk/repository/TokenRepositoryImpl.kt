@@ -4,18 +4,20 @@ import com.clevertap.android.zeropii.sdk.encryption.EncryptionManager
 import com.clevertap.android.zeropii.sdk.model.BatchTokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.model.TokenizeRepoResult
 import com.clevertap.android.zeropii.sdk.network.NetworkProvider
+import com.clevertap.android.zeropii.sdk.retry.RetryPolicy
 import com.clevertap.android.zeropii.sdk.util.ZeroPiiLogger
 
 class TokenRepositoryImpl(
     private val networkProvider: NetworkProvider,
     private val authRepository: AuthRepository,
     private val encryptionManager: EncryptionManager,
-    private val logger: ZeroPiiLogger
+    private val logger: ZeroPiiLogger,
+    private val retryPolicy: RetryPolicy
 ) : TokenRepository {
 
     // Utility components initialized lazily
     private val retryHandler by lazy {
-        RetryHandler(authRepository, logger)
+        RetryHandler(authRepository, logger, retryPolicy)
     }
 
     private val responseProcessor by lazy {
