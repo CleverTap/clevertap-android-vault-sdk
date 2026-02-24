@@ -290,6 +290,7 @@ class ZeroPiiSDK private constructor(
         private var INSTANCE: ZeroPiiSDK? = null
 
         @JvmStatic
+        @JvmOverloads
         fun initialize(
             tokenProvider: AccessTokenProvider,
             apiUrl: String,
