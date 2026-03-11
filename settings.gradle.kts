@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CTVaultSDK"
+rootProject.name = "CTZeroPiiSDK"
 include(":sample")
-include(":clevertap-android-vault-sdk")
+include(":clevertap-android-zeropii-sdk")
