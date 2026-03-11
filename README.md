@@ -1,16 +1,16 @@
-# CleverTap Vault SDK for Android
+# CleverTap ZeroPii SDK for Android
 
 ## Overview
 
-CleverTap Vault SDK provides a secure way to tokenize Personally Identifiable Information (PII) in your Android applications. By replacing sensitive data with format-preserving tokens, you can minimize the exposure of sensitive information while maintaining data utility.
+CleverTap ZeroPii SDK provides a secure way to tokenize Personally Identifiable Information (PII) in your Android applications. By replacing sensitive data with format-preserving tokens, you can minimize the exposure of sensitive information while maintaining data utility.
 
 ## Features
 
-- **Tokenization & Detokenization**: Replace sensitive data with format-preserving tokens and retrieve original values when needed
-- **Batch Operations**: Efficiently process multiple values at once
-- **Secure Authentication**: OAuth2 client credentials flow
-- **Encryption in Transit**: API request and response payloads are encrypted while being transmitted over the network
-- **In-Memory Caching**: Improve performance by caching token mappings
+- **Tokenization**: Replace sensitive data with format-preserving tokens
+- **Batch Operations**: Efficiently tokenize multiple values at once (up to 1,000 per batch)
+- **Pluggable Authentication**: Bring your own token provider via the `AccessTokenProvider` interface
+- **Encryption in Transit**: API request and response payloads are encrypted using AES-256-GCM
+- **Pluggable Retry Policy**: Customize retry behavior or use the built-in exponential backoff
 
 ## Requirements
 
@@ -35,11 +35,11 @@ No special permissions required. The SDK uses standard internet connectivity.
 
 ## Installation
 
-Add the CleverTap Vault SDK to your app's `build.gradle` file:
+Add the CleverTap ZeroPii SDK to your app's `build.gradle` file:
 
 ```gradle
 dependencies {
-    implementation 'com.clevertap.android:clevertap-vault-sdk:1.0.0'
+    implementation 'com.clevertap.android:clevertap-zeropii-sdk:1.0.0'
 }
 ```
 
@@ -47,7 +47,27 @@ dependencies {
 
 ## Quick Start
 
-### 1. Initialize the SDK
+### 1. Implement AccessTokenProvider
+
+The SDK requires you to supply access tokens via the `AccessTokenProvider` interface. This gives you full control over how tokens are fetched (OAuth2, custom auth, etc.):
+
+```kotlin
+class MyTokenProvider : AccessTokenProvider {
+    override fun fetchToken(callback: AccessTokenCallback) {
+        // Fetch token from your auth server
+        // Call exactly ONE of onSuccess or onFailure
+        try {
+            val token = "..." // your token fetching logic
+            val expiresIn = 3600L // token lifetime in seconds
+            callback.onSuccess(AccessTokenInfo(token, expiresIn))
+        } catch (e: Exception) {
+            callback.onFailure(e)
+        }
+    }
+}
+```
+
+### 2. Initialize the SDK
 
 Initialize the SDK in your `Application` class:
 
@@ -55,22 +75,18 @@ Initialize the SDK in your `Application` class:
 class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        
+
         // Initialize with minimum required parameters
-        VaultSDK.initialize(
-            clientId = "YOUR_CLIENT_ID",
-            clientSecret = "YOUR_CLIENT_SECRET", 
-            apiUrl = "YOUR_API_URL",
-            authUrl = "YOUR_AUTH_URL"
+        ZeroPiiSDK.initialize(
+            tokenProvider = MyTokenProvider(),
+            apiUrl = "YOUR_API_URL"
         )
-        
+
         // Or with custom log level
-        VaultSDK.initialize(
-            clientId = "YOUR_CLIENT_ID",
-            clientSecret = "YOUR_CLIENT_SECRET",
+        ZeroPiiSDK.initialize(
+            tokenProvider = MyTokenProvider(),
             apiUrl = "YOUR_API_URL",
-            authUrl = "YOUR_AUTH_URL",
-            logLevel = VaultLogger.LogLevel.DEBUG // Optional
+            logLevel = ZeroPiiLogger.LogLevel.DEBUG
         )
     }
 }
@@ -78,49 +94,32 @@ class MyApplication : Application() {
 
 > **Note**: You **must** call `initialize()` before using any other SDK methods. Calling `getInstance()` before initialization will throw `IllegalStateException`.
 
-### 2. Basic Tokenization
+### 3. Basic Tokenization
 
 ```kotlin
 class MainActivity : AppCompatActivity() {
-    private lateinit var vaultSDK: VaultSDK
-    
+    private lateinit var zeroPiiSDK: ZeroPiiSDK
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Get SDK instance (after initialization)
-        vaultSDK = VaultSDK.getInstance()
-        
+        zeroPiiSDK = ZeroPiiSDK.getInstance()
+
         // Tokenize sensitive data
-        vaultSDK.tokenize("555-12-3456") { result ->
+        zeroPiiSDK.tokenize("555-12-3456") { result ->
             when (result) {
                 is TokenizeResult.Success -> {
                     val token = result.token
                     val wasExisting = result.exists
                     val isNew = result.newlyCreated
                     // Use the token instead of original value
-                    Log.d("VaultSDK", "Token: $token")
+                    Log.d("ZeroPiiSDK", "Token: $token")
                 }
                 is TokenizeResult.Error -> {
-                    Log.e("VaultSDK", "Tokenization failed: ${result.message}")
+                    Log.e("ZeroPiiSDK", "Tokenization failed: ${result.message}")
                 }
             }
-        }
-    }
-}
-```
-
-### 3. Basic Detokenization
-
-```kotlin
-vaultSDK.deTokenizeAsString("555-67-8901") { result ->
-    when (result) {
-        is DetokenizeResult.Success -> {
-            val originalValue:String = result.value
-            val exists = result.exists
-            Log.d("VaultSDK", "Original value: $originalValue")
-        }
-        is DetokenizeResult.Error -> {
-            Log.e("VaultSDK", "Detokenization failed: ${result.message}")
         }
     }
 }
@@ -132,61 +131,26 @@ vaultSDK.deTokenizeAsString("555-67-8901") { result ->
 // Tokenize multiple sensitive values at once
 val sensitiveData = listOf(
     "555-12-3456",
-    "555-98-7654", 
+    "555-98-7654",
     "555-11-2233",
     "555-44-5566"
 )
 
-vaultSDK.batchTokenizeStringValues(sensitiveData) { result ->
+zeroPiiSDK.batchTokenizeStringValues(sensitiveData) { result ->
     when (result) {
         is BatchTokenizeResult.Success -> {
             val summary = result.summary
-            Log.d("VaultSDK", "Processed: ${summary.processedCount}")
-            Log.d("VaultSDK", "New tokens: ${summary.newlyCreatedCount}")
-            Log.d("VaultSDK", "Existing tokens: ${summary.existingCount}")
-            
+            Log.d("ZeroPiiSDK", "Processed: ${summary.processedCount}")
+            Log.d("ZeroPiiSDK", "New tokens: ${summary.newlyCreatedCount}")
+            Log.d("ZeroPiiSDK", "Existing tokens: ${summary.existingCount}")
+
             // Access individual results
             result.results.forEach { item ->
-                Log.d("VaultSDK", "${item.originalValue} -> ${item.token}")
+                Log.d("ZeroPiiSDK", "${item.originalValue} -> ${item.token}")
             }
         }
         is BatchTokenizeResult.Error -> {
-            Log.e("VaultSDK", "Batch tokenization failed: ${result.message}")
-        }
-    }
-}
-```
-
-### 5. Batch Detokenization
-
-```kotlin
-// Detokenize multiple tokens at once
-val tokens = listOf(
-    "TKN_555123456_001",
-    "TKN_555987654_002",
-    "TKN_555112233_003",
-    "TKN_555445566_004"
-)
-
-vaultSDK.batchDeTokenizeAsString(tokens) { result ->
-    when (result) {
-        is BatchDetokenizeResult.Success -> {
-            val summary = result.summary
-            Log.d("VaultSDK", "Processed: ${summary.processedCount}")
-            Log.d("VaultSDK", "Found: ${summary.foundCount}")
-            Log.d("VaultSDK", "Not found: ${summary.notFoundCount}")
-            
-            // Access individual results
-            result.results.forEach { item ->
-                if (item.exists) {
-                    Log.d("VaultSDK", "${item.token} -> ${item.value}")
-                } else {
-                    Log.d("VaultSDK", "${item.token} -> Not found")
-                }
-            }
-        }
-        is BatchDetokenizeResult.Error -> {
-            Log.e("VaultSDK", "Batch detokenization failed: ${result.message}")
+            Log.e("ZeroPiiSDK", "Batch tokenization failed: ${result.message}")
         }
     }
 }
@@ -194,9 +158,9 @@ vaultSDK.batchDeTokenizeAsString(tokens) { result ->
 
 ### **Note:**
 
-- All tokenize/de-tokenize SDK APIs execute on background threads
-- Callbacks are delivered on the main thread - Safe to update UI directly from callbacks
-- *Batch Size Limits:* For tokenization, maximum 1,000 values per batch and for detokenization, maximum 10,000 tokens per batch
+- All SDK APIs execute on background threads
+- Callbacks are delivered on the main thread — safe to update UI directly from callbacks
+- *Batch Size Limit:* Maximum 1,000 values per batch
 
 ---
 
@@ -208,40 +172,125 @@ vaultSDK.batchDeTokenizeAsString(tokens) { result ->
 
 ```kotlin
 fun initialize(
-    clientId: String,
-    clientSecret: String, 
+    tokenProvider: AccessTokenProvider,
     apiUrl: String,
-    authUrl: String,
-    logLevel: VaultLogger.LogLevel = VaultLogger.LogLevel.OFF
-): VaultSDK
+    logLevel: ZeroPiiLogger.LogLevel = ZeroPiiLogger.LogLevel.OFF,
+    retryPolicy: RetryPolicy = /* default exponential backoff policy */
+): ZeroPiiSDK
 ```
 
 **Parameters:**
-- `clientId` - Your OAuth2 client ID
-- `clientSecret` - Your OAuth2 client secret
-- `apiUrl` - Base URL for tokenization API
-- `authUrl` - Base URL for authentication API
-- `logLevel` - Logging verbosity level (optional)
+- `tokenProvider` - Your implementation of `AccessTokenProvider` that supplies access tokens
+- `apiUrl` - Base URL for the tokenization API
+- `logLevel` - Logging verbosity level (optional, defaults to `OFF`)
+- `retryPolicy` - Custom retry policy (optional, defaults to built-in exponential backoff policy)
 
 #### `getInstance()`
 
 ```kotlin
-fun getInstance(): VaultSDK
+fun getInstance(): ZeroPiiSDK
 ```
 
 Returns the initialized SDK instance. Throws `IllegalStateException` if called before `initialize()`.
 
-### Single Value Operations
+### Authentication
 
-#### Tokenization Methods
+#### `AccessTokenProvider`
 
 ```kotlin
-// String tokenization  
+interface AccessTokenProvider {
+    fun fetchToken(callback: AccessTokenCallback)
+}
+```
+
+Implement this interface to supply access tokens to the SDK. The SDK calls `fetchToken` when it needs a token (first request, token expired, or after a 401 response).
+
+#### `AccessTokenCallback`
+
+```kotlin
+interface AccessTokenCallback {
+    fun onSuccess(tokenInfo: AccessTokenInfo)
+    fun onFailure(error: Exception)
+}
+```
+
+Call exactly **one** of `onSuccess` or `onFailure` in your `fetchToken` implementation.
+
+#### `AccessTokenInfo`
+
+```kotlin
+data class AccessTokenInfo(
+    val token: String,
+    val expiresInSeconds: Long
+)
+```
+
+- `token` - The access token string (e.g., a Bearer token)
+- `expiresInSeconds` - Token lifetime in seconds from now
+
+### Retry Policy
+
+#### `RetryPolicy`
+
+```kotlin
+interface RetryPolicy {
+    fun shouldRetry(attempt: Int, httpStatusCode: Int?): Boolean
+    fun retryDelayMs(attempt: Int): Long
+}
+```
+
+Implement this interface to customize retry behavior.
+
+- `shouldRetry` - Called after a failed request. `attempt` is 0-based (0 = after first failure). `httpStatusCode` is `null` for network errors (timeout, no connectivity).
+- `retryDelayMs` - Delay in milliseconds before the retry attempt.
+
+> **Note**: 401 Unauthorized responses bypass `RetryPolicy` entirely — the SDK automatically refreshes the token and retries immediately.
+
+#### Default Behavior
+
+If no custom `retryPolicy` is provided, the SDK uses a built-in exponential backoff policy:
+- Retries on server errors (500, 502, 503, 504), rate limiting (429), and network errors
+- Does not retry on client errors (4xx except 401)
+- Exponential backoff delays: 2s, 4s, 8s, ...
+- Maximum 1 retry by default
+
+#### Custom Retry Policy Example
+
+Here's an example of a linear retry policy that retries up to 3 times with a fixed 2-second delay:
+
+```kotlin
+class LinearRetryPolicy(private val maxRetries: Int = 3) : RetryPolicy {
+
+    private val retryableStatusCodes = setOf(500, 502, 503, 504, 429)
+
+    override fun shouldRetry(attempt: Int, httpStatusCode: Int?): Boolean {
+        if (attempt >= maxRetries) return false
+        // Retry on network errors (null) or server errors
+        return httpStatusCode == null || httpStatusCode in retryableStatusCodes
+    }
+
+    override fun retryDelayMs(attempt: Int): Long {
+        return 2000L // Fixed 2-second delay
+    }
+}
+
+// Use it during initialization
+ZeroPiiSDK.initialize(
+    tokenProvider = MyTokenProvider(),
+    apiUrl = "YOUR_API_URL",
+    retryPolicy = LinearRetryPolicy(maxRetries = 3)
+)
+```
+
+### Single Value Tokenization
+
+```kotlin
+// String tokenization
 fun tokenize(value: String, callback: (TokenizeResult) -> Unit)
 
 // Numeric tokenization
 fun tokenize(value: Int, callback: (TokenizeResult) -> Unit)
-fun tokenize(value: Long, callback: (TokenizeResult) -> Unit) 
+fun tokenize(value: Long, callback: (TokenizeResult) -> Unit)
 fun tokenize(value: Float, callback: (TokenizeResult) -> Unit)
 fun tokenize(value: Double, callback: (TokenizeResult) -> Unit)
 
@@ -249,54 +298,33 @@ fun tokenize(value: Double, callback: (TokenizeResult) -> Unit)
 fun tokenize(value: Boolean, callback: (TokenizeResult) -> Unit)
 ```
 
-#### Detokenization Methods
+### Batch Tokenization
 
 ```kotlin
-// Type-specific detokenization
-fun deTokenizeAsString(token: String, callback: (DetokenizeResult<String>) -> Unit)
-fun deTokenizeAsInt(token: String, callback: (DetokenizeResult<Int>) -> Unit)
-fun deTokenizeAsLong(token: String, callback: (DetokenizeResult<Long>) -> Unit)
-fun deTokenizeAsFloat(token: String, callback: (DetokenizeResult<Float>) -> Unit)
-fun deTokenizeAsDouble(token: String, callback: (DetokenizeResult<Double>) -> Unit) 
-fun deTokenizeAsBoolean(token: String, callback: (DetokenizeResult<Boolean>) -> Unit)
-```
-
-### Batch Operations
-
-#### Batch Tokenization
-
-```kotlin
-// Type-specific batch tokenization
 fun batchTokenizeStringValues(values: List<String>, callback: (BatchTokenizeResult) -> Unit)
 fun batchTokenizeIntValues(values: List<Int>, callback: (BatchTokenizeResult) -> Unit)
 fun batchTokenizeLongValues(values: List<Long>, callback: (BatchTokenizeResult) -> Unit)
-fun batchTokenizeFloatValues(values: List<Float>, callback: (BatchTokenizeResult) -> Unit)  
+fun batchTokenizeFloatValues(values: List<Float>, callback: (BatchTokenizeResult) -> Unit)
 fun batchTokenizeDoubleValues(values: List<Double>, callback: (BatchTokenizeResult) -> Unit)
 fun batchTokenizeBooleanValues(values: List<Boolean>, callback: (BatchTokenizeResult) -> Unit)
-```
-
-#### Batch Detokenization
-
-```kotlin
-// Type-specific batch detokenization
-fun batchDeTokenizeAsString(tokens: List<String>, callback: (BatchDetokenizeResult<String>) -> Unit)
-fun batchDeTokenizeAsInt(tokens: List<String>, callback: (BatchDetokenizeResult<Int>) -> Unit)
-fun batchDeTokenizeAsLong(tokens: List<String>, callback: (BatchDetokenizeResult<Long>) -> Unit)
-fun batchDeTokenizeAsFloat(tokens: List<String>, callback: (BatchDetokenizeResult<Float>) -> Unit)
-fun batchDeTokenizeAsDouble(tokens: List<String>, callback: (BatchDetokenizeResult<Double>) -> Unit)
-fun batchDeTokenizeAsBoolean(tokens: List<String>, callback: (BatchDetokenizeResult<Boolean>) -> Unit)
-```
-
-### Utility Methods
-
-```kotlin
-// Clear token cache
-fun clearCache()
 ```
 
 ---
 
 ## Data Types
+
+### Supported Types
+
+The SDK supports tokenization of the following data types:
+
+| Type | Single | Batch |
+|------|--------|-------|
+| `String` | `tokenize(value: String, ...)` | `batchTokenizeStringValues(...)` |
+| `Int` | `tokenize(value: Int, ...)` | `batchTokenizeIntValues(...)` |
+| `Long` | `tokenize(value: Long, ...)` | `batchTokenizeLongValues(...)` |
+| `Float` | `tokenize(value: Float, ...)` | `batchTokenizeFloatValues(...)` |
+| `Double` | `tokenize(value: Double, ...)` | `batchTokenizeDoubleValues(...)` |
+| `Boolean` | `tokenize(value: Boolean, ...)` | `batchTokenizeBooleanValues(...)` |
 
 ### Result Classes
 
@@ -305,31 +333,16 @@ fun clearCache()
 ```kotlin
 sealed class TokenizeResult {
     data class Success(
-        val token: String,        // Generated token
-        val exists: Boolean,      // Token already existed
-        val newlyCreated: Boolean,// Token was newly created
-        val dataType: String?     // "string" or "number"
+        val token: String,         // Generated token
+        val exists: Boolean,       // Token already existed
+        val newlyCreated: Boolean, // Token was newly created
+        val dataType: String?      // "string" or "number"
     ) : TokenizeResult()
-    
+
     data class Error(
-        val message: String       // Error description
+        val message: String,       // Error description
+        val httpStatusCode: Int?   // HTTP status code (null for network/SDK errors)
     ) : TokenizeResult()
-}
-```
-
-#### `DetokenizeResult<T>`
-
-```kotlin
-sealed class DetokenizeResult<T> {
-    data class Success<T>(
-        val value: T?,           // Original value
-        val exists: Boolean,     // Token exists in system
-        val dataType: String?    // "string" or "number"  
-    ) : DetokenizeResult<T>()
-    
-    data class Error<T>(
-        val message: String      // Error description
-    ) : DetokenizeResult<T>()
 }
 ```
 
@@ -341,9 +354,10 @@ sealed class BatchTokenizeResult {
         val results: List<BatchTokenItem>, // Individual results
         val summary: BatchTokenizeSummary  // Operation summary
     ) : BatchTokenizeResult()
-    
+
     data class Error(
-        val message: String               // Error description
+        val message: String,               // Error description
+        val httpStatusCode: Int?           // HTTP status code (null for network/SDK errors)
     ) : BatchTokenizeResult()
 }
 
@@ -357,36 +371,8 @@ data class BatchTokenItem(
 
 data class BatchTokenizeSummary(
     val processedCount: Int,    // Total processed
-    val existingCount: Int,     // Already existed  
+    val existingCount: Int,     // Already existed
     val newlyCreatedCount: Int  // Newly created
-)
-```
-
-#### `BatchDetokenizeResult<T>`
-
-```kotlin
-sealed class BatchDetokenizeResult<T> {
-    data class Success<T>(
-        val results: List<BatchDetokenItem<T>>, // Individual results
-        val summary: BatchDetokenizeSummary     // Operation summary
-    ) : BatchDetokenizeResult<T>()
-    
-    data class Error<T>(
-        val message: String                    // Error description
-    ) : BatchDetokenizeResult<T>()
-}
-
-data class BatchDetokenItem<T>(
-    val token: String,
-    val value: T?,
-    val exists: Boolean,
-    val dataType: String?
-)
-
-data class BatchDetokenizeSummary(
-    val processedCount: Int,  // Total processed
-    val foundCount: Int,      // Successfully found
-    val notFoundCount: Int    // Not found
 )
 ```
 
@@ -395,7 +381,7 @@ data class BatchDetokenizeSummary(
 ```kotlin
 enum class LogLevel(val intValue: Int) {
     OFF(0),      // No logging, default value
-    ERROR(1),    // Only errors  
+    ERROR(1),    // Only errors
     INFO(2),     // Errors + Info
     DEBUG(3),    // Errors + Info + Debug
     VERBOSE(4)   // All logs including verbose
