@@ -22,7 +22,7 @@ interface TokenizationApi {
      * @param request The tokenization request
      * @return The tokenization response
      */
-    @POST("api/tokenization/getToken")
+    @POST("/ct-vault/api/v2/tokenize")
     suspend fun tokenize(
         @Header("Authorization") authorization: String,
         @Body request: TokenizeRequest
@@ -35,7 +35,7 @@ interface TokenizationApi {
      * @param request The batch tokenization request
      * @return The batch tokenization response
      */
-    @POST("api/tokenization/tokens/batch")
+    @POST("/ct-vault/api/v2/tokenize/batch")
     suspend fun batchTokenize(
         @Header("Authorization") authorization: String,
         @Body request: BatchTokenizeRequest
@@ -48,7 +48,7 @@ interface TokenizationApi {
      * @param request The encrypted tokenization request
      * @return The encrypted tokenization response
      */
-    @POST("api/tokenization/getToken")
+    @POST("/ct-vault/api/v2/tokenize")
     suspend fun tokenizeEncrypted(
         @Header("Authorization") authorization: String,
         @Header("Encrypted") encryptionEnabled: Boolean = true,
@@ -62,7 +62,7 @@ interface TokenizationApi {
      * @param request The encrypted batch tokenization request
      * @return The encrypted batch tokenization response
      */
-    @POST("api/tokenization/tokens/batch")
+    @POST("/ct-vault/api/v2/tokenize/batch")
     suspend fun batchTokenizeEncrypted(
         @Header("Authorization") authorization: String,
         @Header("Encrypted") encryptionEnabled: Boolean = true,
